@@ -1,4 +1,4 @@
-.PHONY: test clean install-dev requirements venv
+.PHONY: test clean install-dev requirements env
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -6,7 +6,7 @@
 PACKAGE_NAME = carla
 PYTHON = $(VENV_DIR)/bin/python3.7
 PIP = $(VENV_DIR)/bin/pip
-VENV_DIR = ../venv
+VENV_DIR = ../env
 
 CURRENT_DIR = $(shell pwd)
 #################################################################################
