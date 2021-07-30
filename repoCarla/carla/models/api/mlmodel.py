@@ -17,7 +17,6 @@ class MLModel(ABC):
         encoding_method: str = "OneHot",
     ) -> None:
         self.data: Data = data
-
         if scaling_method == "MinMax":
             fitted_scaler = preprocessing.MinMaxScaler().fit(data.raw[data.continous])
             self.scaler: BaseEstimator = fitted_scaler

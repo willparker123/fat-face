@@ -23,13 +23,15 @@ class RecourseMethod(ABC):
         if querry_instances.shape[0] == 0:
             raise ValueError("Factuals should not be empty")
 
+            print(querry_instances)
         factuals_enc_norm = scale(
             self._mlmodel.scaler, self._mlmodel.data.continous, querry_instances
         )
+        print(factuals_enc_norm)
         factuals_enc_norm = encode(
             self._mlmodel.encoder, self._mlmodel.data.categoricals, factuals_enc_norm
         )
 
         label = [self._mlmodel.data.target] if with_target else []
 
-        return factuals_enc_norm[self._mlmodel.feature_input_order + label]
+        return factuals_enc_norm[self._mlmodel.feature_input_order() + label]
