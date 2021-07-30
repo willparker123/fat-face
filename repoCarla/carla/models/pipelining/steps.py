@@ -9,7 +9,6 @@ def scale(
 ) -> pd.DataFrame:
     """
     Pipeline function to normalize data with fitted sklearn scaler.
-
     Parameters
     ----------
     fitted_scaler : sklearn Scaler
@@ -18,12 +17,10 @@ def scale(
         List of continuous feature
     df : pd.DataFrame
         Data we want to normalize
-
     Returns
     -------
     output : pd.DataFrame
         Whole DataFrame with normalized values
-
     """
     output = df.copy()
     output[features] = fitted_scaler.transform(output[features])
@@ -36,7 +33,6 @@ def encode(
 ) -> pd.DataFrame:
     """
     Pipeline function to encode data with fitted sklearn OneHotEncoder.
-
     Parameters
     ----------
     fitted_encoder : sklearn OneHotEncoder
@@ -45,7 +41,6 @@ def encode(
         List of categorical feature.
     df : pd.DataFrame
         Data we want to normalize
-
     Returns
     -------
     output : pd.DataFrame
@@ -64,7 +59,6 @@ def decode(
 ) -> pd.DataFrame:
     """
     Pipeline function to decode data with fitted sklearn OneHotEncoder.
-
     Parameters
     ----------
     fitted_encoder : sklearn OneHotEncoder
@@ -73,7 +67,6 @@ def decode(
         List of categorical feature.
     df : pd.DataFrame
         Data we want to normalize
-
     Returns
     -------
     output : pd.DataFrame
@@ -96,14 +89,12 @@ def decode(
 def order_data(feature_order: List[str], df: pd.DataFrame) -> pd.DataFrame:
     """
     Restores the correct input feature order for the ML model
-
     Parameters
     ----------
     feature_order : list
         List of input feature in correct order
     df : pd.DataFrame
         Data we want to order
-
     Returns
     -------
     output : pd.DataFrame

@@ -1,23 +1,12 @@
-from typing import Any, Dict
+from fatapi.model import BlackBox
 
-import pandas as pd
-
-from carla.models.api import MLModel
-from carla.recourse_methods.api import RecourseMethod
-from carla.recourse_methods.catalog.face.library import graph_search
-from carla.recourse_methods.processing import (
-    check_counterfactuals,
-    encode_feature_names,
-    merge_default_parameters,
-)
-
-
-class Face(RecourseMethod):
+class Model():
     """
-    Implementation of FACE from Poyiadzi et.al. [1]_.
+    Abstract class for ML models to apply interpretability / explainability methods to
+    
     Parameters
     ----------
-    mlmodel : carla.model.MLModel
+    blackbox : fatapi.model.BlackBox
         Black-Box-Model
     hyperparams : dict
         Dictionary containing hyperparameters. See notes below for its contents.
@@ -104,7 +93,7 @@ class Face(RecourseMethod):
         df_enc_norm_data = pd.concat(
             [df_enc_norm_fact, df_enc_norm_data], ignore_index=True
         )
-        print( self._immutables)
+
         list_cfs = []
         for i in range(df_enc_norm_fact.shape[0]):
             cf = graph_search(
