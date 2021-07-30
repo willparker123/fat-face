@@ -18,6 +18,7 @@
 | Paragraph | Text | edge_conditions |
 | Paragraph | Text | howmanypaths |
 | Paragraph | Text | undirected |
+| Paragraph | Text | undirected |
 
 
 ### Graph Building
