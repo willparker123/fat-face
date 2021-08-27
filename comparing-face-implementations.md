@@ -1,36 +1,112 @@
 # Comparing FACE Implementations
+
+
+
 ## Comparison of the CARLA, GraphCounterfactuals and FACE paper implementations of the FACE algorithm
+
+
+
+
 
 ### Hyperparams
 
 | CARLA | GraphCounterfactuals | FACE Paper |
 | ----------- | ----------- | ----------- |
-| Header | Title | kernel |
-| Paragraph | Text | weight_function |
-| Paragraph | Text | predictor |
-| Paragraph | Text | pred_threshold |
-| Paragraph | Text | density_threshold |
-| Paragraph | Text | dist_threshold |
-| Paragraph | Text | K (GS kernel) |
-| Paragraph | Text | radius_limit (GS kernel) |
-| Paragraph | Text | n_neighbours (KNN kernel) |
-| Paragraph | Text | epsilon (E kernel) |
-| Paragraph | Text | edge_conditions |
-| Paragraph | Text | howmanypaths |
-| Paragraph | Text | undirected |
-| Paragraph | Text | undirected |
+| In get_counterfactuals(factuals) : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/model.py#L95-L122 | data | In self.fit(X, y) : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L193-L203 |
+| mode | Default 'kde' | method |
+| frac | | |
+| | kde | weight_function |
+| mlmodel | clf | predictor |
+| | pred_threshold | prediction_threshold |
+| radius | density_threshold | density_threshold |
+| | dist_threshold | distance_threshold |
+| p_norm : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L13-L112 | dist_metric | Default 'np.linalg.norm(v0, v1)'|
+| | | K (GS kernel) |
+| | | radius_limit (GS kernel) |
+| n_neighbors | | n_neighbours (KNN kernel) |
+| radius | | epsilon (E kernel) |
+| keys_immutable | | edge_conditions |
+| | | howmanypaths |
+| directed : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L250-L252 | bidirectional | undirected |
+| Paragraph | https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/face.py#L23-L31 | https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L47-L60 |
+
+
+
+
+
+### Kernels
+
+| CARLA | GraphCounterfactuals | FACE Paper |
+| ----------- | ----------- | ----------- |
+| KNN | | KNN |
+| Epsilon | | Epsilon |
+| | | GS |
+| | KDE | KDE |
+| https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L54-64 | https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/face.py#L62 | https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L276-L291 |
+
+
+
+
+
+### Kernel Implementations
+
+| Kernel | CARLA | GraphCounterfactuals | FACE Paper |
+| ----------- | ----------- | ----------- | ----------- |
+| KNN | https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L275-L276 | | https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L142-L170 |
+| Epsilon | https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L277-L278 | | https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L129-L140 |
+| GS | | | https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L172-L191 |
+| KDE | | https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/face.py#L62 | https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L172-L191 |
+
+
+
 
 
 ### Graph Building
 
 | CARLA | GraphCounterfactuals | FACE Paper |
 | ----------- | ----------- | ----------- |
-| Header      | Title       | Title       |
-| Paragraph   | Text        | Text        |
+| build_graph : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L258-L286 | prune_nodes : https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/face.py#L66-L81, prune_edges, add_nodes_and_edges : https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/baseface.py#L82-L152 | fit : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L193-L203, fit_graph : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L296-L300, get_edges : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L35-L44 |
+| Not stored - only used in calculation | Stored as BaseFACE attribute | Stored as CFGenerator attribute |
+| scipy.sparse.csr_matrix : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L275-L285 | networkx.Graph() / networkx.DiGraph() : https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/baseface.py#L39-L42 | Graph : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L5-L17 |
 
-### Graph Kernels
+
+
+
+
+### Dijkstra
 
 | CARLA | GraphCounterfactuals | FACE Paper |
 | ----------- | ----------- | ----------- |
-| KNN      | Title       | Title       |
-| Epsilon   | Text        | Text        |
+| shortest_path : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/library/face_model.py#L237-L255 | networkx.single_source_dijkstra : https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/baseface.py#L195-201 | dijsktra_tosome, dijsktra : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L27-L77 |
+| scipy.sparse.csgraph.dijkstra | networkx.single_source_dijkstra | Local implementation |
+
+
+
+
+
+### Visualisation
+
+| CARLA | GraphCounterfactuals | FACE Paper |
+| ----------- | ----------- | ----------- |
+| None - graph not stored | plot_path : https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/baseface.py#L222-242 | plot_decision_boundary, prepare_grid, plot_density_scores : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L205-L274, plot_density : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L504-L508, plot_gs_scores : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L488-L492, compute_sp(plot=True) : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L439-L453, plot_path(self, path, ax, color, extra_point) : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/dijkstra_algorithm.py#L302-L350 |
+
+
+
+
+
+### Get Counterfactuals
+
+| CARLA | GraphCounterfactuals | FACE Paper |
+| ----------- | ----------- | ----------- |
+| get_counterfactuals : https://github.com/willparker123/fat-face/blob/main/repoCarla/carla/recourse_methods/catalog/face/model.py#L95-L122 | generate_counterfactual(instance, target_class) : https://github.com/willparker123/fat-face/blob/main/repoGraphcounterfactuals/baseface.py#L154-220 | fit(X, y) : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L193-L203, compute_sp : https://github.com/willparker123/fat-face/blob/main/repoFACEPaper/cf_sp/all_object.py#L403-L482 |
+
+
+
+
+
+### Extra comments
+
+| CARLA | GraphCounterfactuals | FACE Paper |
+| ----------- | ----------- | ----------- |
+| Lack of visualisation as Graph is not stored on any object, only used internally | | Supports edge conditions via 'edge_conditions':(v0, v1) and 'check_conditions' method, which modifies kernel |
+| Parameters are spread amongst functions within classes, not all are parameters/hyperparameters on the class | | |
