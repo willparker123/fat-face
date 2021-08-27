@@ -1,1 +1,3 @@
-from .explainability import ExplainabilityMethod, FACEMethod, CEMMethod
+import numpy as np
+
+from fatapi import ExplainabilityMethod, FACEMethod, CEMMethod
