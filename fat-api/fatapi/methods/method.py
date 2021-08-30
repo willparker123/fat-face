@@ -15,7 +15,7 @@ class ExplainabilityMethod():
         Data object containing features of datapoints to be analysed in the ExplainabilityMethod
     factuals_target? : fatapi.data.Data
         Data object containing target features of datapoints to be analysed in the ExplainabilityMethod
-    predict()? : (X: np.array) ->np.array()
+    predict()? : (X: np.array) -> np.array()
         Method for predicting the class label of X
         -- Only required if model not supplied
     model? : fatapi.model.Model

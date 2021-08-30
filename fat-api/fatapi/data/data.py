@@ -4,7 +4,6 @@ from typing import List
 def not_in_range(data, list):
         return any((ind >= data or ind < 0) for ind in list)
     
-    
 class Data():
     """
     Abstract class for numpy.array dataset and essential column indexes
