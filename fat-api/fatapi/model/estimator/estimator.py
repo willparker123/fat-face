@@ -4,7 +4,7 @@ from fatapi.data import Data
 from typing import Callable, List
 class Estimator():
     """
-    Abstract class for ML models to apply interpretability / explainability methods to
+    Abstract class for scaling and encoding data to be passed as a parameter to explainability methods
     
     Parameters
     ----------

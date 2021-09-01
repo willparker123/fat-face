@@ -8,7 +8,7 @@ def keep_cols(data, cols):
     return data[:, cols]
 class Model():
     """
-    Abstract class for ML models to apply interpretability / explainability methods to
+    Abstract class representing an ML model with predictive methods
     
     Parameters
     ----------

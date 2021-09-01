@@ -1,4 +1,4 @@
-from fatapi.model import BlackBox
+from fatapi.model import BlackBox, Model
 from fatapi.model.estimator import Estimator
 from fatapi.data import Data
 from typing import Callable, List
@@ -6,7 +6,8 @@ import numpy as np
 
 class ExplainabilityMethod():
     """
-    Abstract class for ML models to apply interpretability / explainability methods to
+    Abstract class for AI explainability methods such as FACE, CEM, PDP, ALE...
+    Contains methods for generating counterfactuals and the data / model to apply the method to
     
     Parameters
     ----------
@@ -19,89 +20,44 @@ class ExplainabilityMethod():
         Method for predicting the class label of X
         -- Only required if model not supplied
     model? : fatapi.model.Model
-        Model object used to get prediction values, class predictions and Estimator objects
+        Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
     
     Methods
     -------
-    train(X: np.array, Y: np.array):
+    get_counterfactuals() : (X: np.array, Y: np.array) -> np.array
         Calls self.fit()
-    encode_normalize_order_factuals:
+    encode_normalize_order_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
+                                            scaler?: fatapi.model.estimator.Estimator, encoder?: fatapi.model.estimator.Estimator) -> numpy.array
         Uses encoder and scaler from black-box-model to preprocess data as needed.
     """
-    def __init__(self, data: Data, target: Data=None, blackbox: BlackBox=None, X_tofit: List[int]=None, Y_tofit: List[int]=None, **kwargs) -> None:
-        if not blackbox and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
-            raise ValueError(f"Missing arguments in __init__: {'' if blackbox else 'blackbox'} {'' if kwargs.get('fit') else 'fit'} {'' if kwargs.get('predict') else 'predict'} {'' if kwargs.get('predict_proba') else 'predict_proba'} {'' if kwargs.get('score') else 'score'}")
-        if blackbox and (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
-            raise ValueError("Invalid arguments in __init__: please provide blackbox or (predict, predict_proba, fit, score)")
-        if kwargs.get('blackbox'):
-            bb=kwargs.get('blackbox')
-            super().__init__(bb)
-            self.blackbox = bb
-            self.fit = self.blackbox.fit
-            self.predict = self.blackbox.predict
-            self.predict_proba = self.blackbox.predict_proba
-            self.score = self.blackbox.score
-        if (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
-            if kwargs.get('fit'):
-                if (callable(kwargs.get('fit'))):
-                    self.encoder = kwargs.get('fit')
-                else:
-                    raise ValueError("Invalid argument in __init__: fit is not a function")
-            if kwargs.get('predict'):
-                if (callable(kwargs.get('predict'))):
-                    self.encoder = kwargs.get('predict')
-                else:
-                    raise ValueError("Invalid argument in __init__: predict is not a function")
-            if kwargs.get('predict_proba'):
-                if (callable(kwargs.get('predict_proba'))):
-                    self.encoder = kwargs.get('predict_proba')
-                else:
-                    raise ValueError("Invalid argument in __init__: predict_proba is not a function")
-            if kwargs.get('score'):
-                if (callable(kwargs.get('score'))):
-                    self.encoder = kwargs.get('score')
-                else:
-                    raise ValueError("Invalid argument in __init__: score is not a function")
-        if kwargs.get('encoder'):
-            if (type(kwargs.get('encoder'))==Estimator):
-                self.encoder = kwargs.get('encoder')
+    def __init__(self, factuals=None, factuals_target=None, **kwargs) -> None:
+        if not (kwargs.get('predict') or kwargs.get('model')) or (kwargs.get('predict') and kwargs.get('model')):
+            raise ValueError(f"Invalid arguments in __init__: please provide model or predict function")
+        if kwargs.get('model'):
+            if type(kwargs.get('model'))==Model:
+                m = kwargs.get('model')
+                self.model = m
+                super().__init__(m)
+                self.predict = self.model.predict
             else:
-                raise ValueError("Invalid argument in __init__: encoder is not an Estimator")
-        if kwargs.get('scaler'):
-            if (type(kwargs.get('scaler'))==Estimator):
-                self.encoder = kwargs.get('scaler')
+                raise ValueError(f"Invalid argument in __init__: model is not of type Model")
+        if kwargs.get('predict'):
+            if callable(kwargs.get('predict')):
+                self.predict = kwargs.get('predict')
             else:
-                raise ValueError("Invalid argument in __init__: scaler is not an Estimator")
-        if type(data)==Data:
-            if not data.isEncoded and (kwargs.get('encoder') and kwargs.get('scaler')):
-                d : Data = data
-                super().__init__(d)
-                self.data = d
-            else:
-                raise ValueError("Invalid argument in __init__: data must be isEncoded or (scaler, encoder) must be supplied")
+                raise ValueError(f"Invalid argument in __init__: predict is not a function")
+        if not factuals and factuals_target:
+            raise ValueError("Invalid argument in __init__: factual targets supplied with no factuals - provide factuals argument if targets are the features")
         else:
-            raise ValueError("Invalid argument in __init__: data must be of type fatapi.data.Data")
-        if target:
-            if (target.dataset.shape[0] == data.dataset.shape[0]):
-                if type(target)==Data:
-                    if not target.isEncoded and (kwargs.get('encoder') and kwargs.get('scaler')):
-                        t : Data = target
-                        super().__init__(t)
-                        self.target = t
-                    else:
-                        raise ValueError("Invalid argument in __init__: target must be isEncoded or (scaler, encoder) must be supplied")
-                else:
-                    raise ValueError("Invalid argument in __init__: target is not of type fatapi.data.Data")
+            if factuals:
+                self.factuals = factuals
             else:
-                raise ValueError("Invalid argument in __init__: target is not of same shape[0] as data")
-        if X_tofit:
-            self.X_tofit = X_tofit
-        if target:
-            if Y_tofit:
-                self.Y_tofit = Y_tofit
-        else:
-            raise ValueError("Warning in __init__: no target supplied but Y_tofit supplied")
+                print("Warning: No datapoints supplied as factuals - counterfactual methods require arguments")
+            if factuals_target:
+                self.factuals_target = factuals_target
+            else:
+                print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require arguments")
         try:
             d, t = self.get_data_tofit()
             if t:
