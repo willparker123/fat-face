@@ -1,6 +1,7 @@
 import numpy as np
 
-from fatapi.data import Data
+from fatapi.model import keep_cols
+from fatapi.data import Data, not_in_range
 from typing import Callable, List
 class Estimator():
     """
@@ -25,6 +26,12 @@ class Estimator():
         Generate original data from transformed X using columns[] - requires fit
     get_categories() -> dict:
         Get categories and values from fitted data as dict (in form {"gender":["Female", "Male"],"category":[1,2,3]})
+    encode(X: np.array, columns: List[int]):
+        Fits and transforms the data using encoder
+        -- If no encoder, returns X
+    decode(X: np.array, columns: List[int]):
+        Inverse_transforms the data using encoder
+        -- If no encoder, returns X
     """
     def __init__(self, fit, transform, inverse_transform) -> None:
         if (callable(fit)):
@@ -73,4 +80,39 @@ class Estimator():
             self.fit = fit
         else:
             raise ValueError("Invalid argument in fit.setter: fit is not a function")
+        
+    def encode(self, X: np.array, columns: List[int]=None):
+        if not_in_range(X.shape[1], columns):
+            raise ValueError("Invalid arguments in encode: Index in parameter columns is out of range")
+        X_copy = X
+        if columns:
+            cols = columns.sort()
+            X_rem = keep_cols(X, cols)
+        else:
+            cols = range(len(X))
+        self.fit(X_rem)
+        X_rem = self.transform(X_rem)
+        j=0
+        for i in range(len(X)):
+            if i in cols:
+                X_copy[:, i] = X_rem[:, j]
+                j+=1
+        return X_copy
+    
+    def decode(self, X: np.array=None, columns: List[int]=None):
+        if columns and not_in_range(X.shape[1], columns):
+            raise ValueError("Invalid arguments in decode: Index in parameter columns is out of range")
+        X_copy = X
+        if columns:
+            cols = columns.sort()
+            X_rem = keep_cols(X, cols)
+        else:
+            cols = range(len(X))
+        X_rem = self.inverse_transform(X_rem)
+        j=0
+        for i in range(len(X)):
+            if i in cols:
+                X_copy[:, i] = X_rem[:, j]
+                j+=1
+        return X_copy
         

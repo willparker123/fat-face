@@ -126,10 +126,9 @@ class Model():
                 raise ValueError("Invalid argument in __init__: target is not of same shape[0] as data")
         if X_tofit:
             self.X_tofit = X_tofit
-        if target:
-            if Y_tofit:
-                self.Y_tofit = Y_tofit
-        else:
+        if target and Y_tofit:
+            self.Y_tofit = Y_tofit
+        if not target and Y_tofit:
             raise ValueError("Warning in __init__: no target supplied but Y_tofit supplied")
         try:
             d, t = self.get_data_tofit()
@@ -145,7 +144,10 @@ class Model():
 
     def get_data_tofit(self, dd=None, tt=None):
         d = self.data.dataset
-        t = self.target.dataset
+        if self.target:
+            t = self.target.dataset
+        else:
+            t = None
         if dd:
             d = dd
         if tt:
@@ -372,4 +374,5 @@ class Model():
                         Y_ = self.scale(self.target.dataset, self.target.categoricals)
                 X_, Y_ = self.get_data_tofit(X_, Y_)
                 self.fit(X_,Y_)
+                print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
                 return (X_,Y_)
