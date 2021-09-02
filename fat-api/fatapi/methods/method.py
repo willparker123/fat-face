@@ -148,6 +148,12 @@ class ExplainabilityMethod():
             raise ValueError("Invalid argument in explain.setter: explain is not a function")
         
     def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Estimator=None, encoder: Estimator=None) -> Union[Tuple[np.array, np.array], np.array]:
+        """
+        Processes non-encoded feature and target data using model's scaler / encoder or using arguments
+        -------
+        Callable
+        """
+        
         if not self.factuals and not factuals:
             raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.factuals else 'self.factuals'} or {'' if factuals else 'factuals'}")
         if self.factuals:
@@ -190,9 +196,3 @@ class ExplainabilityMethod():
                     if scalef:
                         Y_ = scalef(facts_target.dataset, facts_target.numericals)
             return X_, Y_
-                
-        """
-        Processes non-encoded feature and target data using model's scaler / encoder or using arguments
-        -------
-        Callable
-        """
