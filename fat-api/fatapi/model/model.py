@@ -1,11 +1,10 @@
 from fatapi.model import BlackBox
 from fatapi.model.estimator import Estimator
-from fatapi.data import Data, not_in_range
+from fatapi.data import Data
 from typing import Callable, List
+from fatapi.helpers import not_in_range, keep_cols
 import numpy as np
 
-def keep_cols(data, cols):
-    return data[:, cols]
 class Model():
     """
     Abstract class containing methods used involving the model / interacting with the blackbox model

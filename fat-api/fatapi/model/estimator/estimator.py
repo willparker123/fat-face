@@ -1,7 +1,6 @@
 import numpy as np
 
-from fatapi.model import keep_cols
-from fatapi.data import Data, not_in_range
+from fatapi.helpers import not_in_range, keep_cols
 from typing import Callable, List
 class Estimator():
     """

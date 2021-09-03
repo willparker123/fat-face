@@ -2,12 +2,15 @@ from fatapi.model import Model
 from fatapi.model.estimator import Estimator
 from fatapi.data import Data
 from typing import Callable, Tuple, Union
+from fatapi.methods import ExplainabilityMethod
 import numpy as np
 
-class ExplainabilityMethod():
+class FACEMethod(ExplainabilityMethod):
     """
-    Abstract class for AI explainability methods such as FACE, CEM, PDP, ALE...
-    Contains methods for generating counterfactuals and the data / model to apply the method to
+    Abstract class for the FACE algorithm as an AI explainability method.
+    
+    Contains methods for generating counterfactuals and the data / model to apply FACE to, 
+    as well as visualisation and extracting internal representations
     
     Parameters
     ----------
@@ -33,40 +36,11 @@ class ExplainabilityMethod():
                                             scaler?: fatapi.model.estimator.Estimator, encoder?: fatapi.model.estimator.Estimator) -> numpy.array
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
     """
-    def __init__(self, factuals=None, factuals_target=None, **kwargs) -> None:
-        
-        if not (kwargs.get('predict') or kwargs.get('model')) or (kwargs.get('predict') and kwargs.get('model')):
-            raise ValueError(f"Invalid arguments in __init__: please provide model or predict function but not both")
-        if kwargs.get('model'):
-            if type(kwargs.get('model'))==Model:
-                m: Model = kwargs.get('model')
-                self.model: Model = m
-                super().__init__(m)
-                self.predict = self.model.predict
-            else:
-                raise ValueError(f"Invalid argument in __init__: model is not of type Model")
-        if kwargs.get('predict'):
-            if callable(kwargs.get('predict')):
-                self.predict = kwargs.get('predict')
-            else:
-                raise ValueError(f"Invalid argument in __init__: predict is not a function")
-        self.explain = lambda *args: args
-        if kwargs.get('explain'):
-            if callable(kwargs.get('explain')):
-                self.explain = kwargs.get('explain')
-            else:
-                raise ValueError(f"Invalid argument in __init__: explain is not a function")
-        if not factuals and factuals_target:
-            raise ValueError("Invalid argument in __init__: factual targets supplied with no factuals - provide factuals argument if targets are the features")
-        else:
-            if factuals:
-                self.factuals = factuals
-            else:
-                print("Warning: No datapoints supplied as factuals - counterfactual methods require arguments")
-            if factuals_target:
-                self.factuals_target = factuals_target
-            else:
-                print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require arguments")
+    def __init__(self, **kwargs) -> None:
+        if not (kwargs.get('kernel')):
+            raise ValueError(f"Invalid arguments in __init__: please provide kernel")
+        if kwargs.get('kernel'):
+            print("kernel init")
 
     @property
     def predict(self) -> Callable:
