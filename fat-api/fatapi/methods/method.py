@@ -140,7 +140,7 @@ class ExplainabilityMethod():
             raise ValueError("Invalid argument in factuals_target.setter: factuals_target is not of type fatapi.data.Data")
            
     @property
-    def explain(self, X: np.array=None, Y: np.array=None, predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
+    def explain(self, X: np.array=[], Y: np.array=[], predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
         """
         Sets and changes the method to get explainability information from a set of factuals
         -------

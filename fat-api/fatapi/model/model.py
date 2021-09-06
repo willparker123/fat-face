@@ -58,19 +58,12 @@ class Model():
         Inverse_transforms the data using scaler
         -- If no scaler, returns X
     """
-    def __init__(self, data: Data, target: Data=None, blackbox: BlackBox=None, X_tofit: List[int]=None, Y_tofit: List[int]=None, **kwargs) -> None:
+    def __init__(self, data: Data, target: Data=None, blackbox: BlackBox=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
         if not blackbox and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
             raise ValueError(f"Missing arguments in __init__: {'' if blackbox else 'blackbox'} {'' if kwargs.get('fit') else 'fit'} {'' if kwargs.get('predict') else 'predict'} {'' if kwargs.get('predict_proba') else 'predict_proba'} {'' if kwargs.get('score') else 'score'}")
         if blackbox and (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
             raise ValueError("Invalid arguments in __init__: please provide blackbox or (predict, predict_proba, fit, score)")
-        if kwargs.get('blackbox'):
-            bb=kwargs.get('blackbox')
-            super().__init__(bb)
-            self.blackbox = bb
-            self.fit = self.blackbox.fit
-            self.predict = self.blackbox.predict
-            self.predict_proba = self.blackbox.predict_proba
-            self.score = self.blackbox.score
+        self.blackbox = blackbox
         if (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
             if kwargs.get('fit'):
                 if (callable(kwargs.get('fit'))):
@@ -93,12 +86,13 @@ class Model():
                 else:
                     raise ValueError("Invalid argument in __init__: score is not a function")
         if type(data)==Data:
-            if not data.isEncoded and (kwargs.get('encoder') and kwargs.get('scaler')):
+            if data.isEncoded or (kwargs.get('encoder') and kwargs.get('scaler')):
                 d : Data = data
-                super().__init__(d)
                 self.data = d
             else:
                 raise ValueError("Invalid argument in __init__: data must be isEncoded or (scaler, encoder) must be supplied")
+        else:
+            raise ValueError("Invalid argument in __init__: data must be of type fatapi.data.Data")
         if kwargs.get('encoder'):
             if (type(kwargs.get('encoder'))==Estimator):
                 self.encoder = kwargs.get('encoder')
@@ -109,14 +103,11 @@ class Model():
                 self.encoder = kwargs.get('scaler')
             else:
                 raise ValueError("Invalid argument in __init__: scaler is not an Estimator")
-        else:
-            raise ValueError("Invalid argument in __init__: data must be of type fatapi.data.Data")
         if target:
             if (target.dataset.shape[0] == data.dataset.shape[0]):
                 if type(target)==Data:
-                    if not target.isEncoded and (kwargs.get('encoder') and kwargs.get('scaler')):
+                    if target.isEncoded or (kwargs.get('encoder') and kwargs.get('scaler')):
                         t : Data = target
-                        super().__init__(t)
                         self.target = t
                     else:
                         raise ValueError("Invalid argument in __init__: target must be isEncoded or (scaler, encoder) must be supplied")
@@ -124,15 +115,15 @@ class Model():
                     raise ValueError("Invalid argument in __init__: target is not of type fatapi.data.Data")
             else:
                 raise ValueError("Invalid argument in __init__: target is not of same shape[0] as data")
-        if X_tofit:
-            self.X_tofit = X_tofit
-        if target and Y_tofit:
-            self.Y_tofit = Y_tofit
+        self.X_tofit = X_tofit
+        self.Y_tofit = Y_tofit
+        if Y_tofit and not target:
+            raise ValueError("Invalid arguments in __init__: target not supplied but columns Y_tofit supplied")
         if not target and Y_tofit:
             raise ValueError("Warning in __init__: no target supplied but Y_tofit supplied")
         try:
             d, t = self.get_data_tofit()
-            if t:
+            if len(t)>0:
                 self.fitted_data = self.train(d, t)
             else:
                 self.fitted_data = self.train(d)
@@ -147,14 +138,14 @@ class Model():
         if self.target:
             t = self.target.dataset
         else:
-            t = None
+            t = []
         if dd:
             d = dd
         if tt:
             t = tt
-        if d and self.X_tofit:
+        if self.X_tofit!=None:
             d = keep_cols(d, self.X_tofit)
-        if t and self.Y_tofit and t:
+        if len(t)>0 and self.Y_tofit:
             t = keep_cols(t, self.Y_tofit)
         return d, t
 
@@ -165,8 +156,10 @@ class Model():
         -------
         Callable
         """
-        
-        return self.fit
+        if self.blackbox:
+            return self.blackbox.fit
+        else:
+            return self.fit
 
     @fit.setter
     def fit(self, fitf) -> None:
@@ -182,8 +175,10 @@ class Model():
         -------
         Callable
         """
-        
-        return self.predict
+        if self.blackbox:
+            return self.blackbox.predict
+        else:
+            return self.predict
 
     @predict.setter
     def predict(self, predictf) -> None:
@@ -199,8 +194,10 @@ class Model():
         -------
         Callable
         """
-        
-        return self.predict_proba
+        if self.blackbox:
+            return self.blackbox.predict_proba
+        else:
+            return self.predict_proba
 
     @predict_proba.setter
     def predict_proba(self, predict_probaf) -> None:
@@ -216,8 +213,10 @@ class Model():
         -------
         Callable
         """
-        
-        return self.score
+        if self.blackbox:
+            return self.blackbox.score
+        else:
+            return self.score
 
     @score.setter
     def score(self, scoref) -> None:
@@ -342,14 +341,14 @@ class Model():
         else:
             return X
     
-    def train(self, X: np.array=None, Y: np.array=None, cols_encode: List[int]=None, cols_scale: List[int]=None):
-        if Y and not X:
+    def train(self, X: np.array=[], Y: np.array=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
+        if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:
-            if X and Y:
+            if len(X)>0 and len(Y)>0:
                 self.fit(X,Y)
                 return (X,Y)
-            if X:
+            if len(X)>0:
                 self.fit(X)
                 return (X)
             else:

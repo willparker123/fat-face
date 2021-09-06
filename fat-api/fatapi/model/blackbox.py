@@ -26,27 +26,23 @@ class BlackBox():
     def __init__(self, classifier, **kwargs) -> None:
         self.classifier = classifier
         try:
-            predict = getattr(classifier, "predict")
-            if callable(predict):
-                self.predict = self.classifier.predict
+            if callable(getattr(classifier, "predict")):
+                pass
         except:
             raise ValueError("Invalid argument in __init__: classifier does not have function predict")
         try:
-            predict_proba = getattr(classifier, "predict_proba")
-            if callable(predict_proba):
-                self.predict_proba = self.classifier.predict_proba
+            if callable(getattr(classifier, "predict_proba")):
+                pass
         except:
             raise ValueError("Invalid argument in __init__: classifier does not have function predict_proba")
         try:
-            fit = getattr(classifier, "fit")
-            if callable(fit):
-                self.fit = self.classifier.fit
+            if callable(getattr(classifier, "fit")):
+                pass
         except:
             raise ValueError("Invalid argument in __init__: classifier does not have function fit")
         try:
-            score = getattr(classifier, "score")
-            if callable(score):
-                self.score = self.classifier.score
+            if callable(getattr(classifier, "score")):
+                pass
         except:
             raise ValueError("Invalid argument in __init__: classifier does not have function score")
 
@@ -57,13 +53,15 @@ class BlackBox():
         -------
         Callable
         """
-        
-        return self.fit
+        if hasattr(self, 'fitf'):
+            return self.fitf
+        else:
+            return self.classifier.fit
 
     @fit.setter
     def fit(self, fitf) -> None:
         if callable(fitf):
-            self.fit = fitf
+            self.fitf = fitf
         else:
             raise ValueError("Invalid argument in fit.setter: fitf is not a function")
         
@@ -74,13 +72,15 @@ class BlackBox():
         -------
         Callable
         """
-        
-        return self.predict
+        if hasattr(self, 'predictf'):
+            return self.predictf
+        else:
+            return self.classifier.predict
 
     @predict.setter
     def predict(self, predictf) -> None:
         if callable(predictf):
-            self.predict = predictf
+            self.predictf = predictf
         else:
             raise ValueError("Invalid argument in predict.setter: predictf is not a function")
         
@@ -91,13 +91,15 @@ class BlackBox():
         -------
         Callable
         """
-        
-        return self.predict_proba
+        if hasattr(self, 'predict_probaf'):
+            return self.predict_probaf
+        else:
+            return self.classifier.predict_proba
 
     @predict_proba.setter
     def predict_proba(self, predict_probaf) -> None:
         if callable(predict_probaf):
-            self.predict_proba = predict_probaf
+            self.predict_probaf = predict_probaf
         else:
             raise ValueError("Invalid argument in predict_proba.setter: predict_probaf is not a function")
         
@@ -108,13 +110,15 @@ class BlackBox():
         -------
         Callable
         """
-        
-        return self.score
+        if hasattr(self, 'scoref'):
+            return self.scoref
+        else:
+            return self.classifier.score
 
     @score.setter
     def score(self, scoref) -> None:
         if callable(scoref):
-            self.score = scoref
+            self.scoref = scoref
         else:
             raise ValueError("Invalid argument in score.setter: scoref is not a function")
         
