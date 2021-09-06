@@ -1,6 +1,7 @@
-from fatapi.model import BlackBox
+
 from fatapi.model.estimator import Estimator
 from fatapi.data import Data
+from fatapi.model import BlackBox
 from typing import Callable, List
 from fatapi.helpers import not_in_range, keep_cols
 import numpy as np

@@ -21,7 +21,7 @@ class ExplainabilityMethod():
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
-    explain() : (self, X: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
+    explain()? : (self, X: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
     
     Methods
@@ -119,6 +119,26 @@ class ExplainabilityMethod():
         else:
             raise ValueError("Invalid argument in factuals.setter: factuals is not of type fatapi.data.Data")
         
+    @property
+    def factuals_target(self) -> Data:
+        """
+        Sets and changes the default factuals_target the explainability method applies to
+        -------
+        Callable
+        """
+        
+        return self.factuals_target
+
+    @factuals_target.setter
+    def factuals_target(self, factuals_target) -> None:
+        if type(factuals_target)==Data:
+            if (factuals_target.shape[0]==factuals.shape[0]):
+                self.factuals_target = factuals_target
+            else:
+                raise ValueError("Invalid argument in factuals_target.setter: factuals_target has a different number of points than factuals")
+        else:
+            raise ValueError("Invalid argument in factuals_target.setter: factuals_target is not of type fatapi.data.Data")
+           
     @property
     def explain(self, X: np.array=None, Y: np.array=None, predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
         """

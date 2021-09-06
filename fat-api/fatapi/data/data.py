@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List
 from fatapi.helpers import not_in_range
+
 class Data():
     """
     Abstract class for numpy.array dataset and essential column indexes
@@ -24,7 +25,7 @@ class Data():
     
     def __init__(
         self,
-        dataset: np.array(),
+        dataset: np.array,
         categoricals : List[int]=None,
         numericals : List[int]=None,
         isEncoded : bool=True,

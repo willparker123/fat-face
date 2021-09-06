@@ -24,9 +24,30 @@ class FACEMethod(ExplainabilityMethod):
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
-    explain() : (self, X: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
+    explain()? : (self, X: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
-    
+    kernel_type? : String
+        String specifying which kernel to use to build weights from data - default is "KDE" but can be "KDE"/"KNN"/"Epsilon"/"GS"
+        -- Only required if kernel not supplied
+    kernel()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Float
+        Kernel function to build weights using two datapoints
+        -- Only required if kernel_type is not supplied or if custom density kernel function
+    k_neighbours? : Int
+        Number of neighbours to take into account when using KNN kernel
+        -- Only required if kernel_type is "KNN"
+    t_distance? : Float
+        Threshold of distance (epsilon) between nodes to constitute a non-zero weight
+        -- Default is 0.25
+    t_density? : Float
+        Threshold of density value between nodes to constitute a non-zero weight when building feasible paths (number of neighbours when kernel_type=="KNN")
+        -- Only required if kernel_type is "KDE"
+        -- Default is 0.001 
+    t_prediction? : Float [0-1]
+        Threshold of prediction value from predict function to warrant 
+        -- Default is 0.5
+    conditions()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Boolean
+        Additional conditions which check for feasible paths between nodes
+
     Methods
     -------
     explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
@@ -35,137 +56,16 @@ class FACEMethod(ExplainabilityMethod):
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
                                             scaler?: fatapi.model.estimator.Estimator, encoder?: fatapi.model.estimator.Estimator) -> numpy.array
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
+    build_graph() : (X: numpy.array, Y: numpy.array, t_distance?: Float, t_density?: Float, 
+                                    t_prediction?: Float, conditions()?: Callable) -> Tuple[numpy.array, List[Tuple[Int, Int, Float]]]
+        Builds graph for distances between nodes in the feature space - returns G=(V, E); 
+        V is the dataset where the row index is used in the first and second arguments in the Edge tuple.
+        The last value in each Edge is the weight of the edge.
+    get_graph() : () -> Tuple[numpy.array, List[Tuple[Int, Int, Float]]]
+        Returns the graph which build_graph() produces
     """
     def __init__(self, **kwargs) -> None:
         if not (kwargs.get('kernel')):
             raise ValueError(f"Invalid arguments in __init__: please provide kernel")
         if kwargs.get('kernel'):
             print("kernel init")
-
-    @property
-    def predict(self) -> Callable:
-        """
-        Sets and changes the predict method of the explainability method
-        -------
-        Callable
-        """
-        
-        return self.predict
-
-    @predict.setter
-    def predict(self, predictf) -> None:
-        if callable(predictf):
-            self.predict = predictf
-        else:
-            raise ValueError("Invalid argument in predict.setter: predictf is not a function")
-        
-    @property
-    def model(self) -> Model:
-        """
-        Sets and changes the model attribute of the explainability method
-        -------
-        Callable
-        """
-        
-        return self.model
-
-    @predict.setter
-    def model(self, model) -> None:
-        if type(model)==Model:
-            self.model = model
-        else:
-            raise ValueError("Invalid argument in model.setter: model is not a fatapi.model.Model")
-          
-    @property
-    def factuals(self) -> Data:
-        """
-        Sets and changes the default factuals the explainability method applies to
-        -------
-        Callable
-        """
-        
-        return self.factuals
-
-    @factuals.setter
-    def factuals(self, factuals) -> None:
-        if type(factuals)==Data:
-            self.factuals = factuals
-        else:
-            raise ValueError("Invalid argument in factuals.setter: factuals is not of type fatapi.data.Data")
-        
-    @property
-    def explain(self, X: np.array=None, Y: np.array=None, predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
-        """
-        Sets and changes the method to get explainability information from a set of factuals
-        -------
-        Callable
-        """
-        X_, Y_ = self.preprocess_factuals()
-        if X:
-            X_ = X
-        if Y:
-            Y_ = Y
-            
-        if not (X_.shape[0]==Y_.shape[0]):
-            raise ValueError("Invalid argument in explain: different number of points in data and target")
-        if Y_:
-            return self.explain(X_, Y_)
-        else:
-            return self.explain(X_)
-
-    @explain.setter
-    def explain(self, explainf) -> None:
-        if callable(explainf):
-            self.explain = explainf
-        else:
-            raise ValueError("Invalid argument in explain.setter: explain is not a function")
-        
-    def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Estimator=None, encoder: Estimator=None) -> Union[Tuple[np.array, np.array], np.array]:
-        """
-        Processes non-encoded feature and target data using model's scaler / encoder or using arguments
-        -------
-        Callable
-        """
-        
-        if not self.factuals and not factuals:
-            raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.factuals else 'self.factuals'} or {'' if factuals else 'factuals'}")
-        if self.factuals:
-            facts = self.factuals
-        if factuals:
-            facts = factuals
-        if not self.factuals_target:
-            if factuals_target:
-                print(f"Warning: targets for factuals provided in preprocess_factuals but no default self.factuals_target")
-            else:
-                print(f"Warning: no targets for factuals provided to preprocess_factuals - features only (X)")
-        if self.factuals_target:
-            facts_target = self.factuals_target
-        if factuals_target:
-            facts_target = factuals_target
-        X_ = facts.dataset
-        Y_ = facts_target.dataset
-        if facts.isEncoded and facts_target.isEncoded:
-            return X_, Y_
-        else:
-            if not (self.model or model or scaler or encoder):
-                raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.model else 'self.model'} or {'' if model else 'model'} or {'' if scaler else 'scaler'} or {'' if encoder else 'encoder'}")
-            else:
-                if self.model:
-                    encodef = self.model.encode()
-                    scalef = self.model.scale()
-                if model:
-                    encodef = model.encode()
-                if encoder:
-                    encodef = encoder.encode()
-                if scaler:
-                    scalef = scaler.encode()
-                if encodef:
-                    X_ = encodef(facts.dataset, facts.categoricals)
-                if scalef:
-                    X_ = scalef(facts.dataset, facts.numericals)
-                if facts_target: 
-                    if encodef:
-                        Y_ = encodef(facts_target.dataset, facts_target.categoricals)
-                    if scalef:
-                        Y_ = scalef(facts_target.dataset, facts_target.numericals)
-            return X_, Y_

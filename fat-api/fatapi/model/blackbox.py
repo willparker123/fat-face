@@ -1,12 +1,9 @@
-from fatapi.model import BlackBox
+
 from fatapi.model.estimator import Estimator
-from fatapi.data import Data
-from typing import Callable, List
+from typing import Callable
 import numpy as np
 
-def keep_cols(data, cols):
-    return data[:, cols]
-class Model():
+class BlackBox():
     """
     Abstract class representing an ML model with predictive methods
     
