@@ -104,7 +104,7 @@ class Model():
             else:
                 raise ValueError("Invalid argument in __init__: scaler is not an Estimator")
         if target:
-            if (target.dataset.shape[0] == data.dataset.shape[0]):
+            if (target.n_data == data.n_data):
                 if type(target)==Data:
                     if target.isEncoded or (kwargs.get('encoder') and kwargs.get('scaler')):
                         t : Data = target
@@ -143,9 +143,9 @@ class Model():
             d = dd
         if tt:
             t = tt
-        if self.X_tofit!=None:
+        if len(self.X_tofit)>0:
             d = keep_cols(d, self.X_tofit)
-        if len(t)>0 and self.Y_tofit:
+        if len(t)>0 and len(self.Y_tofit)>0:
             t = keep_cols(t, self.Y_tofit)
         return d, t
 
@@ -345,6 +345,8 @@ class Model():
         if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:
+            print(X.shape)
+            print(Y.shape)
             if len(X)>0 and len(Y)>0:
                 self.fit(X,Y)
                 return (X,Y)

@@ -46,7 +46,7 @@ class FACEMethod(ExplainabilityMethod):
         Threshold of prediction value from predict function to warrant 
         -- Default is 0.5
     conditions()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Boolean
-        Additional conditions which check for feasible paths between nodes
+        Additional conditions which check for feasible paths between nodes - must return a Boolean
 
     Methods
     -------

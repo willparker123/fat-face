@@ -21,12 +21,12 @@ class ExplainabilityMethod():
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
-    explain()? : (self, X: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
+    explain()? : (self, X: numpy.array, Y?: numpy.array, predictf()?: Callable) -> numpy.array
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
     
     Methods
     -------
-    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
+    explain() : (X?: numpy.array, Y?: numpy.array, predictf()?: Callable) -> numpy.array
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
@@ -62,11 +62,11 @@ class ExplainabilityMethod():
             if factuals:
                 self.factuals = factuals
             else:
-                print("Warning: No datapoints supplied as factuals - counterfactual methods require arguments")
+                print("Warning: No datapoints supplied as factuals - counterfactual methods require factuals argument")
             if factuals_target:
                 self.factuals_target = factuals_target
             else:
-                print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require arguments")
+                print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require factuals_target argument")
 
     @property
     def predict(self) -> Callable:
@@ -152,12 +152,16 @@ class ExplainabilityMethod():
         if Y:
             Y_ = Y
             
+        if predict:
+            predictf = predict
+        else:
+            predictf = self.predict
         if not (X_.shape[0]==Y_.shape[0]):
             raise ValueError("Invalid argument in explain: different number of points in data and target")
         if Y_:
-            return self.explain(X_, Y_)
+            return self.explain(X_, Y_, predictf=predictf)
         else:
-            return self.explain(X_)
+            return self.explain(X_, predictf=predictf)
 
     @explain.setter
     def explain(self, explainf) -> None:

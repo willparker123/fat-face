@@ -18,27 +18,34 @@ class Data():
         -- Default value is all columns of dataset
     isEncoded? : boolean
         Bool showing whether the dataset has already been encoded/normalised
-    
+
     Methods
-    -------
+    ----------
+    get_rows_as_data() : (row_indicies: List[int])
+        Get rows with indicies given as argument from dataset and return as a Data object
     """
-    
+
     def __init__(self, 
                 dataset: np.array,
-                dtype: str="data",
                 categoricals: List[int]=[], 
                 numericals: List[int]=[], 
-                isEncoded: bool=True):
-        if len(dataset.shape) < 2:
-            raise ValueError("Invalid argument in __init__: dataset must be at least 2-dimensional")
+                isEncoded: bool=True,
+                dtype: str="data"):
+        n_features = 1
+        if len(dataset.shape) > 1:
+            n_features = dataset.shape[1]
+        self.n_features = n_features
+        self.n_data = dataset.shape[0]
+        if n_features == 1:
+            dataset = np.reshape(dataset,(self.n_data,1))
         self.categoricals = []
-        self.numericals = range(dataset.shape[1])
+        self.numericals = list(range(n_features))
         if dtype:
             if dtype=="data" or dtype=="target":
                 if dtype=="data":
-                    self.numericals = range(dataset.shape[1])
+                    self.numericals = list(range(n_features))
                 else:
-                    self.categoricals = range(dataset.shape[1])
+                    self.categoricals = list(range(n_features))
             else:
                 raise ValueError("Invalid arguments in __init__: type must be 'data' or 'target'")
         if categoricals:
@@ -47,18 +54,18 @@ class Data():
             self.numericals = numericals
         self.dataset = dataset
         self.isEncoded = isEncoded
-        if not_in_range(self.dataset.shape[1], categoricals):
+        print(f"C: {self.categoricals} N: {self.categoricals}")
+        if len(self.categoricals) > 0 and not_in_range(self.n_features, self.categoricals):
             raise ValueError("Invalid arguments in __init__: Index in categoricals is out of range")
-        if not_in_range(self.dataset.shape[1], numericals):
+        if len(self.numericals) > 0 and not_in_range(self.n_features, self.numericals):
             raise ValueError("Invalid arguments in __init__: Index in numericals is out of range")
-        if self.dataset.shape[1] <= 0:
+        if self.n_features <= 0:
             raise ValueError("Invalid arguments in __init__: dataset has no rows / datapoints")
-        
-    def N_data(self, subset=None):
-        return self.dataset.shape[0]
     
-    def N_features(self):
-        return self.dataset.shape[1]
-    
+    def get_rows_as_data(self, row_indicies: List[int]):
+        print(self.categoricals)
+        print(self.numericals)
+        return Data(self.dataset[row_indicies, :], self.categoricals, self.numericals, self.isEncoded)
+
     def __str__(self):
         return f"Data: {self.dataset}, Target: {self.target}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.isEncoded}"
