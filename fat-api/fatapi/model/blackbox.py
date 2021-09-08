@@ -53,17 +53,17 @@ class BlackBox():
         -------
         Callable
         """
-        if hasattr(self, 'fitf'):
-            return self.fitf
+        if hasattr(self, '_fit'):
+            return self._fit
         else:
             return self.classifier.fit
 
     @fit.setter
-    def fit(self, fitf) -> None:
-        if callable(fitf):
-            self.fitf = fitf
+    def fit(self, fit) -> None:
+        if callable(fit):
+            self._fit = fit
         else:
-            raise ValueError("Invalid argument in fit.setter: fitf is not a function")
+            raise ValueError("Invalid argument in fit.setter: _fit is not a function")
         
     @property
     def predict(self) -> Callable:
@@ -72,17 +72,17 @@ class BlackBox():
         -------
         Callable
         """
-        if hasattr(self, 'predictf'):
-            return self.predictf
+        if hasattr(self, '_predict'):
+            return self._predict
         else:
             return self.classifier.predict
 
     @predict.setter
-    def predict(self, predictf) -> None:
-        if callable(predictf):
-            self.predictf = predictf
+    def predict(self, _predict) -> None:
+        if callable(_predict):
+            self._predict = _predict
         else:
-            raise ValueError("Invalid argument in predict.setter: predictf is not a function")
+            raise ValueError("Invalid argument in predict.setter: _predict is not a function")
         
     @property
     def predict_proba(self) -> Callable:
@@ -110,41 +110,14 @@ class BlackBox():
         -------
         Callable
         """
-        if hasattr(self, 'scoref'):
-            return self.scoref
+        if hasattr(self, '_score'):
+            return self._score
         else:
             return self.classifier.score
 
     @score.setter
-    def score(self, scoref) -> None:
-        if callable(scoref):
-            self.scoref = scoref
+    def score(self, _score) -> None:
+        if callable(_score):
+            self._score = _score
         else:
-            raise ValueError("Invalid argument in score.setter: scoref is not a function")
-        
-    @property
-    def encoder(self) -> Estimator:
-        """
-        Sets and changes the encoder method of the model
-        -------
-        Estimator
-        """
-        
-        return self.encoder
-
-    @encoder.setter
-    def encoder(self, encoder) -> None:
-        if callable(encoder):
-            self.encoder = encoder
-        else:
-            raise ValueError("Invalid argument in encoder.setter: encoder is not an Estimator")
-        
-    @property
-    def scaler(self) -> Callable:
-        """
-        Sets and changes the scaler method of the model
-        -------
-        Callable
-        """
-        
-        return self.scaler
+            raise ValueError("Invalid argument in score.setter: _score is not a function")

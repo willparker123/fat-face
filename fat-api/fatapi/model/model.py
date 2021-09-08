@@ -67,22 +67,22 @@ class Model():
         if (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
             if kwargs.get('fit'):
                 if (callable(kwargs.get('fit'))):
-                    self.encoder = kwargs.get('fit')
+                    self._encoder = kwargs.get('fit')
                 else:
                     raise ValueError("Invalid argument in __init__: fit is not a function")
             if kwargs.get('predict'):
                 if (callable(kwargs.get('predict'))):
-                    self.encoder = kwargs.get('predict')
+                    self._encoder = kwargs.get('predict')
                 else:
                     raise ValueError("Invalid argument in __init__: predict is not a function")
             if kwargs.get('predict_proba'):
                 if (callable(kwargs.get('predict_proba'))):
-                    self.encoder = kwargs.get('predict_proba')
+                    self._encoder = kwargs.get('predict_proba')
                 else:
                     raise ValueError("Invalid argument in __init__: predict_proba is not a function")
             if kwargs.get('score'):
                 if (callable(kwargs.get('score'))):
-                    self.encoder = kwargs.get('score')
+                    self._encoder = kwargs.get('score')
                 else:
                     raise ValueError("Invalid argument in __init__: score is not a function")
         if type(data)==Data:
@@ -95,12 +95,12 @@ class Model():
             raise ValueError("Invalid argument in __init__: data must be of type fatapi.data.Data")
         if kwargs.get('encoder'):
             if (type(kwargs.get('encoder'))==Estimator):
-                self.encoder = kwargs.get('encoder')
+                self._encoder = kwargs.get('encoder')
             else:
                 raise ValueError("Invalid argument in __init__: encoder is not an Estimator")
         if kwargs.get('scaler'):
             if (type(kwargs.get('scaler'))==Estimator):
-                self.encoder = kwargs.get('scaler')
+                self._encoder = kwargs.get('scaler')
             else:
                 raise ValueError("Invalid argument in __init__: scaler is not an Estimator")
         if target:
@@ -159,14 +159,14 @@ class Model():
         if self.blackbox:
             return self.blackbox.fit
         else:
-            return self.fit
+            return self._fit
 
     @fit.setter
-    def fit(self, fitf) -> None:
-        if callable(fitf):
-            self.fit = fitf
+    def fit(self, _fit) -> None:
+        if callable(_fit):
+            self._fit = _fit
         else:
-            raise ValueError("Invalid argument in fit.setter: fitf is not a function")
+            raise ValueError("Invalid argument in fit.setter: _fit is not a function")
         
     @property
     def predict(self) -> Callable:
@@ -178,14 +178,14 @@ class Model():
         if self.blackbox:
             return self.blackbox.predict
         else:
-            return self.predict
+            return self._predict
 
     @predict.setter
-    def predict(self, predictf) -> None:
-        if callable(predictf):
-            self.predict = predictf
+    def predict(self, predict) -> None:
+        if callable(predict):
+            self._predict = predict
         else:
-            raise ValueError("Invalid argument in predict.setter: predictf is not a function")
+            raise ValueError("Invalid argument in predict.setter: _predict is not a function")
         
     @property
     def predict_proba(self) -> Callable:
@@ -197,12 +197,12 @@ class Model():
         if self.blackbox:
             return self.blackbox.predict_proba
         else:
-            return self.predict_proba
+            return self._predict_proba
 
     @predict_proba.setter
-    def predict_proba(self, predict_probaf) -> None:
-        if callable(predict_probaf):
-            self.predict_proba = predict_probaf
+    def predict_proba(self, predict_proba) -> None:
+        if callable(predict_proba):
+            self._predict_proba = predict_proba
         else:
             raise ValueError("Invalid argument in predict_proba.setter: predict_probaf is not a function")
         
@@ -216,14 +216,14 @@ class Model():
         if self.blackbox:
             return self.blackbox.score
         else:
-            return self.score
+            return self._score
 
     @score.setter
-    def score(self, scoref) -> None:
-        if callable(scoref):
-            self.score = scoref
+    def score(self, score) -> None:
+        if callable(score):
+            self._score = score
         else:
-            raise ValueError("Invalid argument in score.setter: scoref is not a function")
+            raise ValueError("Invalid argument in score.setter: _score is not a function")
         
     @property
     def encoder(self) -> Estimator:
@@ -233,12 +233,12 @@ class Model():
         Estimator
         """
         
-        return self.encoder
+        return self._encoder
 
     @encoder.setter
     def encoder(self, encoder) -> None:
         if callable(encoder):
-            self.encoder = encoder
+            self._encoder = encoder
         else:
             raise ValueError("Invalid argument in encoder.setter: encoder is not an Estimator")
         
@@ -250,12 +250,12 @@ class Model():
         Callable
         """
         
-        return self.scaler
+        return self._scaler
 
     @scaler.setter
-    def scaler(self, scalerf) -> None:
-        if callable(scalerf):
-            self.scaler = scalerf
+    def scaler(self, scaler) -> None:
+        if callable(scaler):
+            self._scaler = scaler
         else:
             raise ValueError("Invalid argument in scaler.setter: scalerf is not a function")
         
@@ -345,10 +345,8 @@ class Model():
         if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:
-            print(X.shape)
-            print(Y.shape)
             if len(X)>0 and len(Y)>0:
-                self.fit(X,Y)
+                self.fit(X,Y.ravel())
                 return (X,Y)
             if len(X)>0:
                 self.fit(X)
@@ -374,6 +372,6 @@ class Model():
                     else:
                         Y_ = self.scale(self.target.dataset, self.target.categoricals)
                 X_, Y_ = self.get_data_tofit(X_, Y_)
-                self.fit(X_,Y_)
+                self.fit(X_,Y_.ravel())
                 print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
                 return (X_,Y_)

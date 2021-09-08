@@ -23,8 +23,6 @@ class Estimator():
         Generate transformed data from X using columns[] - requires fit
     inverse_transform(X: numpy.array, columns?: List[int]) -> numpy.array:
         Generate original data from transformed X using columns[] - requires fit
-    get_categories() -> dict:
-        Get categories and values from fitted data as dict (in form {"gender":["Female", "Male"],"category":[1,2,3]})
     encode(X: np.array, columns: List[int]):
         Fits and transforms the data using encoder
         -- If no encoder, returns X
@@ -46,23 +44,6 @@ class Estimator():
         else:
             raise ValueError("Invalid argument in __init__: inverse_transform is not a function")
 
-    @property
-    def fit(self) -> Callable:
-        """
-        Sets and changes the fit method of the estimator
-        -------
-        Callable
-        """
-        
-        return self.fit
-
-    @fit.setter
-    def fit(self, fit) -> None:
-        if callable(fit):
-            self.fit = fit
-        else:
-            raise ValueError("Invalid argument in fit.setter: fit is not a function")
-        
     @property
     def fit(self) -> Callable:
         """

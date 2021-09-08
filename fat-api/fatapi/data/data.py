@@ -38,8 +38,8 @@ class Data():
         self.n_data = dataset.shape[0]
         if n_features == 1:
             dataset = np.reshape(dataset,(self.n_data,1))
-        self.categoricals = []
-        self.numericals = list(range(n_features))
+        self.categoricals: List[int] = []
+        self.numericals: List[int] = list(range(n_features))
         if dtype:
             if dtype=="data" or dtype=="target":
                 if dtype=="data":
@@ -54,7 +54,6 @@ class Data():
             self.numericals = numericals
         self.dataset = dataset
         self.isEncoded = isEncoded
-        print(f"C: {self.categoricals} N: {self.categoricals}")
         if len(self.categoricals) > 0 and not_in_range(self.n_features, self.categoricals):
             raise ValueError("Invalid arguments in __init__: Index in categoricals is out of range")
         if len(self.numericals) > 0 and not_in_range(self.n_features, self.numericals):
@@ -63,9 +62,81 @@ class Data():
             raise ValueError("Invalid arguments in __init__: dataset has no rows / datapoints")
     
     def get_rows_as_data(self, row_indicies: List[int]):
-        print(self.categoricals)
-        print(self.numericals)
         return Data(self.dataset[row_indicies, :], self.categoricals, self.numericals, self.isEncoded)
+
+    @property
+    def isEncoded(self) -> bool:
+        """
+        Sets and changes isEncoded
+        -------
+        Callable
+        """
+        
+        return self.isEncoded
+
+    @isEncoded.setter
+    def isEncoded(self, isEncoded) -> None:
+        if not type(isEncoded)==bool:
+            raise ValueError("Invalid argument in isEncoded.setter: isEncoded is not of type bool")   
+        else:
+            self.isEncoded = isEncoded
+
+    @property
+    def dtype(self) -> bool:
+        """
+        Sets and changes dtype
+        -------
+        Callable
+        """
+        
+        return self.dtype
+
+    @dtype.setter
+    def dtype(self, dtype) -> None:
+        if not type(dtype)==str:
+            raise ValueError("Invalid argument in dtype.setter: dtype is not of type string")   
+        if not (dtype=="data" or dtype=="target"):
+            raise ValueError("Invalid argument in dtype.setter: dtype is not 'data' or 'target'")   
+        else:
+            self.dtype = dtype
+
+    @property
+    def categoricals(self) -> List[int]:
+        """
+        Sets and changes categoricals
+        -------
+        Callable
+        """
+        
+        return self.categoricals
+
+    @categoricals.setter
+    def categoricals(self, categoricals) -> None:
+        if not type(categoricals)==List[int]:
+            raise ValueError("Invalid argument in categoricals.setter: categoricals is not of type List[int]")   
+        if len(self.categoricals) > 0 and not_in_range(self.n_features, self.categoricals):
+            raise ValueError("Invalid argument in categoricals.setter: Index in categoricals is out of range")
+        else:
+            self.categoricals = categoricals
+
+    @property
+    def numericals(self) -> List[int]:
+        """
+        Sets and changes numericals
+        -------
+        Callable
+        """
+        
+        return self.numericals
+
+    @numericals.setter
+    def numericals(self, numericals) -> None:
+        if not type(numericals)==List[int]:
+            raise ValueError("Invalid argument in numericals.setter: numericals is not of type List[int]")   
+        if len(self.numericals) > 0 and not_in_range(self.n_features, self.numericals):
+            raise ValueError("Invalid argument in numericals.setter: Index in numericals is out of range")
+        else:
+            self.numericals = numericals
 
     def __str__(self):
         return f"Data: {self.dataset}, Target: {self.target}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.isEncoded}"
