@@ -130,43 +130,60 @@ class ExplainabilityMethod():
     @factuals_target.setter
     def factuals_target(self, factuals_target) -> None:
         if type(factuals_target)==Data:
-            if (factuals_target.shape[0]==factuals.shape[0]):
+            if (factuals_target.shape[0]==factuals_target.shape[0]):
                 self._factuals_target = factuals_target
             else:
                 raise ValueError("Invalid argument in factuals_target.setter: factuals_target has a different number of points than factuals")
         else:
             raise ValueError("Invalid argument in factuals_target.setter: factuals_target is not of type fatapi.data.Data")
 
-    def explain(self, X: np.array=[], Y: np.array=[], predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
-        """
-        Sets and changes the method to get explainability information from a set of factuals
-        -------
-        Callable
-        """
-        X_, Y_ = self.preprocess_factuals()
-        if X:
+    def explain(self, X: np.array=[], Y: np.array=[], facts: np.array=[], facts_target: np.array=[], predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
+        facts_, facts_target_ = self.preprocess_factuals()
+        if facts:
+            facts_ = facts
+        if facts_target:
+            facts_target_ = facts_target
+        X_ = []
+        Y_ = []
+        if self.model:
+            X_ = self.model.data
+            if self.model.target:
+                Y_ = self.model.target
+        if len(X)>0:
             X_ = X
-        if Y:
+        if len(Y)>0:
             Y_ = Y
-            
+        if len(Y_)>0 and not facts_target:
+            raise ValueError("Invalid arguments to explain: target for data supplied but no facts_target")
+        if len(Y_)==0 and facts_target:
+            raise ValueError("Invalid arguments to explain: facts_target supplied but no target for data")
         if predict:
             _predict = predict
         else:
             _predict = self._predict
-        if not (X_.shape[0]==Y_.shape[0]):
-            raise ValueError("Invalid argument in explain: different number of points in data and target")
         if len(Y_)>0:
-            return self._explain(X=X_, Y=Y_, predict=_predict)
+            if not (X_.shape[0]==Y_.shape[0]):
+                raise ValueError("Invalid argument in explain: different number of points in data and target")
+        if not (facts.shape[0]==facts_target.shape[0]):
+            raise ValueError("Invalid argument in explain: different number of points in facts and facts_target")
+        if len(facts_target_)>0:
+            if len(X_)>0:
+                if len(Y_)>0:
+                    return self._explain(X=X_, Y=Y_, facts=facts_, facts_target=facts_target_, predict=_predict)
+                else:
+                    return self._explain(X=X_, facts=facts_, facts_target=facts_target_, predict=_predict)
+            else:
+                return self._explain(facts=facts_, facts_target=facts_target_, predict=_predict)
         else:
-            return self._explain(X=X_, predict=_predict)
+            if len(X_)>0:
+                if len(Y_)>0:
+                    return self._explain(X=X_, Y=Y_, facts=facts_, predict=_predict)
+                else:
+                    return self._explain(X=X_, facts=facts_, predict=_predict)
+            else:
+                return self._explain(facts=facts_, predict=_predict)
 
     def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Estimator=None, encoder: Estimator=None) -> Union[Tuple[np.array, np.array], np.array]:
-        """
-        Processes non-encoded feature and target data using model's scaler / encoder or using arguments
-        -------
-        Callable
-        """
-        
         if not self.factuals and not factuals:
             raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.factuals else 'self.factuals'} or {'' if factuals else 'factuals'}")
         if self.factuals:
@@ -195,20 +212,20 @@ class ExplainabilityMethod():
             else:
                 if self.model:
                     _encode = self.model.encode()
-                    scalef = self.model.scale()
+                    _scale = self.model.scale()
                 if model:
                     _encode = model.encode()
                 if encoder:
                     _encode = encoder.encode()
                 if scaler:
-                    scalef = scaler.encode()
+                    _scale = scaler.encode()
                 if _encode:
                     X_ = _encode(facts.dataset, facts.categoricals)
-                if scalef:
-                    X_ = scalef(facts.dataset, facts.numericals)
+                if _scale:
+                    X_ = _scale(facts.dataset, facts.numericals)
                 if facts_target: 
                     if _encode:
                         Y_ = _encode(facts_target.dataset, facts_target.categoricals)
-                    if scalef:
-                        Y_ = scalef(facts_target.dataset, facts_target.numericals)
+                    if _scale:
+                        Y_ = _scale(facts_target.dataset, facts_target.numericals)
             return X_, Y_

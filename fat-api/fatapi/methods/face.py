@@ -1,6 +1,7 @@
 from fatapi.model import Model
 from fatapi.model.estimator import Estimator
 from fatapi.data import Data
+from fatapi.helpers import dijkstra
 from typing import Callable, Tuple, Union
 from fatapi.methods import ExplainabilityMethod
 import numpy as np
@@ -45,7 +46,7 @@ class FACEMethod(ExplainabilityMethod):
     t_prediction? : Float [0-1]
         Threshold of prediction value from predict function to warrant 
         -- Default is 0.5
-    shortest_path() : (X: graph: numpy.array)
+    shortest_path() : (X: numpy.array, graph: numpy.array)
     conditions()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Boolean
         Additional conditions which check for feasible paths between nodes - must return a Boolean
 
@@ -86,16 +87,41 @@ class FACEMethod(ExplainabilityMethod):
         self.t_prediction = 0.5
         self.t_density = 0.001
         self.k_neighbours = 3
+        self._shortest_path = dijkstra
+        
+        if kwargs.get('shortest_path'):
+            if callable(kwargs.get('shortest_path')):
+                self._shortest_path = kwargs.get('shortest_path')
+            else:
+                raise ValueError(f"Invalid argument in __init__: shortest_path must be a function")
         if kwargs.get('t_distance'):
-            self.t_distance = kwargs.get('t_distance')
+            if type(kwargs.get('t_distance'))==float or type(kwargs.get('t_distance'))==int:
+                self.t_distance = kwargs.get('t_distance')
+            else:
+                raise ValueError(f"Invalid argument in __init__: t_distance must be a number")
         if kwargs.get('t_prediction'):
-            self.t_prediction = kwargs.get('t_prediction')
+            if type(kwargs.get('t_prediction'))==float or type(kwargs.get('t_prediction'))==int:
+                if kwargs.get('t_prediction') >= 0 and kwargs.get('t_prediction') < 1:
+                    self.t_prediction = kwargs.get('t_prediction')
+                else:
+                    raise ValueError(f"Invalid argument in __init__: t_prediction must be between 0 and 1")
+            else:
+                raise ValueError(f"Invalid argument in __init__: t_prediction must be a number")
         if kwargs.get('t_density'):
             if not self._kernel_type=="KDE":
                 print("Warning in __init__: t_density supplied but kernel may not be KDE")
-            self.t_density = kwargs.get('t_density')
+            if type(kwargs.get('t_density'))==float or type(kwargs.get('t_density'))==int:
+                if kwargs.get('t_density') >= 0 and kwargs.get('t_density') < 1:
+                    self.t_density = kwargs.get('t_density')
+                else:
+                    raise ValueError(f"Invalid argument in __init__: t_density must be between 0 and 1")
+            else:
+                raise ValueError(f"Invalid argument in __init__: t_density must be a number")
         if kwargs.get('k_neighbours'):
-            self.k_neighbours = kwargs.get('k_neighbours')
+            if type(kwargs.get('k_neighbours'))==int:
+                self.k_neighbours = kwargs.get('k_neighbours')
+            else:
+                raise ValueError("Invalid argument in __init__: k_neighbours must be an integer")
         if self._kernel_type=="KNN":
             if not kwargs.get('k_neighbours'):
                 print("Warning in __init__: k_neighbours not supplied - default (3) being used")
@@ -104,7 +130,78 @@ class FACEMethod(ExplainabilityMethod):
                 self._conditions = kwargs.get('conditions')
             else:
                 raise ValueError("Invalid argument in __init__: conditions must be a function that returns a bool")
+        self._explain = self.explain_FACE
 
+    @property
+    def shortest_path(self) -> Callable:
+        """
+        Sets and changes the shortest_path algorithm
+        -------
+        Callable
+        """
+        
+        return self._shortest_path
+
+    @shortest_path.setter
+    def shortest_path(self, shortest_path) -> None:
+        if callable(shortest_path):
+            self._shortest_path = shortest_path
+        else:
+            raise ValueError("Invalid argument in shortest_path.setter: shortest_path is not a function")
+
+    @property
+    def conditions(self) -> bool:
+        """
+        Sets and changes the extra conditions feasible paths must pass
+        -------
+        Callable
+        """
+        
+        return self._conditions
+
+    @conditions.setter
+    def conditions(self, conds) -> None:
+        if callable(conds):
+            self._conditions = conds
+        else:
+            raise ValueError("Invalid argument in conditions.setter: conditions must be a function that returns a bool")
+
+    @property
+    def kernel(self) -> Callable:
+        """
+        Sets and changes the kernel algorithm
+        -------
+        Callable
+        """
+        
+        return self._shortest_path
+
+    @kernel.setter
+    def kernel(self, kernel) -> None:
+        if callable(kernel):
+            self._kernel = kernel
+        else:
+            raise ValueError("Invalid argument in kernel.setter: kernel is not a function")  
+
+    @property
+    def kernel_type(self) -> Callable:
+        """
+        Sets and changes the kernel_type
+        -------
+        Callable
+        """
+        
+        return self._kernel_type
+
+    @kernel_type.setter
+    def kernel_type(self, kernel_type) -> None:
+        if type(kernel_type)==str:
+            if kernel_type.lower()=="KDE".lower() or kernel_type.lower()=="KNN".lower() or kernel_type.lower()=="E".lower() or kernel_type.lower()=="GS".lower():
+                self._kernel_type = kernel_type
+            else:
+                raise ValueError("Invalid argument in kernel.setter: kernel_type is not 'kde', 'knn', 'e' or 'gs'") 
+        else:
+            raise ValueError("Invalid argument in kernel.setter: kernel_type is not a string")  
 
     def kernel_KDE():
         return None
@@ -114,5 +211,6 @@ class FACEMethod(ExplainabilityMethod):
         
     def kernel_E():
         return None
-    #def explain(self, X: np.array=[], Y: np.array=[], predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
-    #    return [[0,0],[0,0]]
+    
+    def explain_FACE(self, X: np.array=[], Y: np.array=[], facts: np.array=[], facts_target: np.array=[], predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
+        return (X/2, Y, facts, facts_target, predict)
