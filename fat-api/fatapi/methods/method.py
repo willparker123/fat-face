@@ -143,40 +143,40 @@ class ExplainabilityMethod():
             facts_ = facts
         if facts_target:
             facts_target_ = facts_target
-        X_ = []
-        Y_ = []
-        if self.model:
-            X_ = self.model.data
-            if self.model.target:
-                Y_ = self.model.target
+        X_ = None
+        Y_ = None
+        if self._model:
+            X_ = self._model.data
+            if self._model.target:
+                Y_ = self._model.target
         if len(X)>0:
             X_ = X
         if len(Y)>0:
             Y_ = Y
-        if len(Y_)>0 and not facts_target:
-            raise ValueError("Invalid arguments to explain: target for data supplied but no facts_target")
-        if len(Y_)==0 and facts_target:
-            raise ValueError("Invalid arguments to explain: facts_target supplied but no target for data")
+        if Y_ and len(facts_target_)==0:
+            raise ValueError("Invalid arguments to explain: target for data supplied but no facts_target_")
+        if not Y_ and len(facts_target_)>0:
+            raise ValueError("Invalid arguments to explain: facts_target_ supplied but no target for data")
         if predict:
             _predict = predict
         else:
             _predict = self._predict
-        if len(Y_)>0:
-            if not (X_.shape[0]==Y_.shape[0]):
+        if Y_:
+            if not (X_.dataset.shape[0]==Y_.dataset.shape[0]):
                 raise ValueError("Invalid argument in explain: different number of points in data and target")
-        if not (facts.shape[0]==facts_target.shape[0]):
+        if not (facts_.shape[0]==facts_target_.shape[0]):
             raise ValueError("Invalid argument in explain: different number of points in facts and facts_target")
         if len(facts_target_)>0:
-            if len(X_)>0:
-                if len(Y_)>0:
+            if X_:
+                if Y_:
                     return self._explain(X=X_, Y=Y_, facts=facts_, facts_target=facts_target_, predict=_predict)
                 else:
                     return self._explain(X=X_, facts=facts_, facts_target=facts_target_, predict=_predict)
             else:
                 return self._explain(facts=facts_, facts_target=facts_target_, predict=_predict)
         else:
-            if len(X_)>0:
-                if len(Y_)>0:
+            if X_>0:
+                if Y_>0:
                     return self._explain(X=X_, Y=Y_, facts=facts_, predict=_predict)
                 else:
                     return self._explain(X=X_, facts=facts_, predict=_predict)

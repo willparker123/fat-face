@@ -30,7 +30,7 @@ class FACEMethod(ExplainabilityMethod):
     kernel_type? : String
         String specifying which kernel to use to build weights from data - default is "KDE" but can be "KDE"/"KNN"/"Epsilon"/"GS"
         -- Only required if kernel not supplied
-    kernel()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Float
+    kernel()? : (self: FACEMethod, X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Float
         Kernel function to build weights using two datapoints
         -- Only required if kernel_type is not supplied or to override kernel function
     k_neighbours? : Int
@@ -46,7 +46,9 @@ class FACEMethod(ExplainabilityMethod):
     t_prediction? : Float [0-1]
         Threshold of prediction value from predict function to warrant 
         -- Default is 0.5
-    shortest_path() : (X: numpy.array, graph: numpy.array)
+    shortest_path()? : (X: numpy.array, graph: numpy.array, data: numpy.array)
+        Shortest path algorithm to find the path between each instance (row) of X using data 
+        (datapoints corresponding to indexes [i, j] of graph) and graph (adjacency matrix)
     conditions()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Boolean
         Additional conditions which check for feasible paths between nodes - must return a Boolean
 
@@ -88,7 +90,8 @@ class FACEMethod(ExplainabilityMethod):
         self.t_density = 0.001
         self.k_neighbours = 3
         self._shortest_path = dijkstra
-        
+        self._conditions = lambda **kwargs: kwargs
+        self._weight_function = lambda x: -np.log(x)
         if kwargs.get('shortest_path'):
             if callable(kwargs.get('shortest_path')):
                 self._shortest_path = kwargs.get('shortest_path')
@@ -130,7 +133,13 @@ class FACEMethod(ExplainabilityMethod):
                 self._conditions = kwargs.get('conditions')
             else:
                 raise ValueError("Invalid argument in __init__: conditions must be a function that returns a bool")
+        if kwargs.get('weight_function'):
+            if callable(kwargs.get('weight_function')):
+                self._weight_function = kwargs.get('weight_function')
+            else:
+                raise ValueError("Invalid argument in __init__: weight_function must be a function that returns a float")
         self._explain = self.explain_FACE
+        self.graph = None
 
     @property
     def shortest_path(self) -> Callable:
@@ -165,6 +174,23 @@ class FACEMethod(ExplainabilityMethod):
             self._conditions = conds
         else:
             raise ValueError("Invalid argument in conditions.setter: conditions must be a function that returns a bool")
+
+    @property
+    def weight_function(self) -> float:
+        """
+        Sets and changes the extra weight_function feasible paths must pass
+        -------
+        Callable
+        """
+        
+        return self._weight_function
+
+    @weight_function.setter
+    def weight_function(self, conds) -> None:
+        if callable(conds):
+            self._weight_function = conds
+        else:
+            raise ValueError("Invalid argument in weight_function.setter: weight_function must be a function that returns a bool")
 
     @property
     def kernel(self) -> Callable:
@@ -203,7 +229,7 @@ class FACEMethod(ExplainabilityMethod):
         else:
             raise ValueError("Invalid argument in kernel.setter: kernel_type is not a string")  
 
-    def kernel_KDE():
+    def kernel_KDE(self, ):
         return None
         
     def kernel_KNN():
@@ -211,6 +237,77 @@ class FACEMethod(ExplainabilityMethod):
         
     def kernel_E():
         return None
+
+    def kernel_GS():
+        return None
+
+    def check_edge(X_1: np.array, X_2: np.array, weight: float):
+        return True
+
+    def get_kernel_image(X: np.array, t_prediction: float, t_density: float, t_distance: float, k_neighbours: int):
+        if self.kernel_type=="kde":
+                    temp = kernel(X[i], X[j], t_density=t_density, t_distance=t_distance)
+                if self.kernel_type=="knn":
+                    temp = kernel(X[i], X[j], k_neighbours=k_neighbours, t_distance=t_distance)
+                if self.kernel_type=="e":
+                    
+                if self.kernel_type=="gs":
+
+                else:
+                    temp = kernel(X[i], X[j], t_density, t_distance, t_prediction)
+                check_
     
-    def explain_FACE(self, X: np.array=[], Y: np.array=[], facts: np.array=[], facts_target: np.array=[], predict: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
-        return (X/2, Y, facts, facts_target, predict)
+    def get_predictions(X: np.array, predictf: Callable):
+        n_samples = X.shape[0]
+        g = np.zeros([n_samples, 1], dtype=float)
+        for x in range(n_samples):
+            g[x] = predictf(X[x])
+        return g
+
+    def build_graph(self, X: np.array, kernel_image: np.array, predict_image: np.array, shortest_path: Callable, conditions: Callable=True, nsamples: int=None):
+        n_samples = X.shape[0]
+        if nsamples:
+            n_samples = nsamples
+        g = np.zeros([n_samples, n_samples], dtype=float)
+        for i in range(n_samples):
+            for j in range(i):
+                if check_edge(X[i], X[j], kernel_image[i, j]):
+                    g[i, j] = kernel_image[i, j]
+        g = g + g.T - np.diag(np.diag(g))
+        return g
+
+    def explain_FACE(self, X: np.array=[], Y: np.array=[], facts: np.array=[], facts_target: np.array=[], t_prediction=None, t_density=None, t_distance=None, k_neighbours=None, shortest_path: Callable=None, predict: Callable=None, conditions: Callable=None) -> Union[np.array, Tuple[np.array, np.array]]:
+        if X and not Y:
+            raise ValueError("Invalid arguments in explain_FACE: target needed for data; X supplied but not Y")
+        if self.factuals and not self.factuals_target and not (X and Y):
+            raise ValueError("Invalid arguments in explain_FACE: factuals_target expected for self.factuals; factuals_target not supplied")
+        kernel = self.kernel
+        cs_f = self.conditions
+        if conditions:
+            cs_f = conditions
+        pred_f = self.predict
+        if predict:
+            pred_f = predict
+        sp_f = self.shortest_path
+        if shortest_path:
+            sp_f = shortest_path
+        t_den = self.t_density
+        t_dist = self.t_distance
+        t_pred = self.t_prediction
+        k_n = self.k_neighbours
+        if t_density:
+            t_den = t_density
+        if t_distance:
+            t_dist = t_distance
+        if t_prediction:
+            t_pred = t_prediction
+        if k_neighbours:
+            k_n = k_neighbours
+        prediction_image = get_predictions(X, pred_f)
+        kernel_image = get_kernel_image(X, t_pred, t_den, t_dist, k_n)
+        if X and Y:
+            graph = self.build_graph(X, kernel_image, prediction_image, sp_f, cs_f)
+        else:
+            graph = self.build_graph(self.factuals.dataset, kernel_image, prediction_image, sp_f, cs_f, self.factuals.n_data)
+        self.graph = graph
+        return graph
