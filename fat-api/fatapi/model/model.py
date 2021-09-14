@@ -22,16 +22,16 @@ class Model(object):
     X_tofit? : List[int]
         List of column indexes for features in data.dataset; if None, all columns in data.dataset
     Y_tofit? : List[int]
-    predict()? : (X: np.array) ->np.array()
+    predict()? : (X: np.ndarray) ->np.ndarray()
         Method for predicting the class label of X
         -- Only required if blackbox not supplied
-    predict_proba()? : (X: np.array) -> np.array()
+    predict_proba()? : (X: np.ndarray) -> np.ndarray()
         Method for predicting the probability of the prediction of X
         -- Only required if blackbox not supplied
-    fit()? : (X: np.array, Y?: np.array) -> np.array()
+    fit()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray()
         Method for fitting model to X, Y
         -- Only required if blackbox not supplied
-    score()? : (X: np.array, Y?: np.array) -> np.array()
+    score()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray()
         Method for calculating a score when predicting X and comparing with Y
         -- Only required if blackbox not supplied
     scaler? : fatapi.model.Transformer
@@ -43,18 +43,18 @@ class Model(object):
     -------
     get_fitted_data(): () -> (numpy.array, numpy.array?)
         Returns the dataset the model has been fitted to; tuple of (X) or (X, Y)
-    train(X: np.array, Y: np.array):
+    train(X: np.ndarray, Y: np.ndarray):
         Calls self.fit() after scaling/normalising
-    encode(X: np.array, columns: List[int]):
+    encode(X: np.ndarray, columns: List[int]):
         Fits and transforms the data using encoder
         -- If no encoder, returns X
-    decode(X: np.array, columns: List[int]):
+    decode(X: np.ndarray, columns: List[int]):
         Inverse_transforms the data using encoder
         -- If no encoder, returns X
-    scale(X: np.array, columns: List[int]):
+    scale(X: np.ndarray, columns: List[int]):
         Fits and transforms the data using scaler
         -- If no scaler, returns X
-    unscale(X: np.array, columns: List[int]):
+    unscale(X: np.ndarray, columns: List[int]):
         Inverse_transforms the data using scaler
         -- If no scaler, returns X
     """
@@ -211,7 +211,7 @@ class Model(object):
     def scaler(self, scaler) -> None:
         self._scaler = check_type(scaler, Transformer, "scaler.setter")
         
-    def encode(self, X: np.array, columns: List[int]=None):
+    def encode(self, X: np.ndarray, columns: List[int]=None):
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in encode: Index in parameter columns is out of range")
         if self.encoder:
@@ -232,7 +232,7 @@ class Model(object):
         else:
             return X
     
-    def decode(self, X: np.array=None, columns: List[int]=None):
+    def decode(self, X: np.ndarray=None, columns: List[int]=None):
         if columns and not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in decode: Index in parameter columns is out of range")
         if self.encoder:
@@ -252,7 +252,7 @@ class Model(object):
         else:
             return X
     
-    def scale(self, X: np.array, columns: List[int]=None):
+    def scale(self, X: np.ndarray, columns: List[int]=None):
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
         if self.scaler:
@@ -273,7 +273,7 @@ class Model(object):
         else:
             return X
     
-    def unscale(self, X: np.array=None, columns: List[int]=None):
+    def unscale(self, X: np.ndarray=None, columns: List[int]=None):
         if columns and not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in unscale: Index in parameter columns is out of range")
         if self.scaler:
@@ -293,7 +293,7 @@ class Model(object):
         else:
             return X
     
-    def train(self, X: np.array=[], Y: np.array=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
+    def train(self, X: np.ndarray=[], Y: np.ndarray=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
         if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:

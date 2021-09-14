@@ -8,7 +8,7 @@ class Data():
     
     Parameters
     ----------
-    dataset : np.array()
+    dataset : np.ndarray()
         Numpy.Array() containing rows of datapoints, where columns are the features
     categoricals? : List[int]
         List of column indexes of categorical features (including target features)
@@ -26,7 +26,7 @@ class Data():
     """
 
     def __init__(self, 
-                dataset: np.array,
+                dataset: np.ndarray,
                 categoricals: List[int]=[], 
                 numericals: List[int]=[], 
                 encoded: bool=False,

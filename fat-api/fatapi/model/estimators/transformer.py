@@ -24,10 +24,10 @@ class Transformer(object):
         Generate transformed data from X using columns[] - requires fit
     inverse_transform(X: numpy.array, columns?: List[int]) -> numpy.array:
         Generate original data from transformed X using columns[] - requires fit
-    encode(X: np.array, columns: List[int]):
+    encode(X: np.ndarray, columns: List[int]):
         Fits and transforms the data using encoder
         -- If no encoder, returns X
-    decode(X: np.array, columns: List[int]):
+    decode(X: np.ndarray, columns: List[int]):
         Inverse_transforms the data using encoder
         -- If no encoder, returns X
     """
@@ -62,7 +62,7 @@ class Transformer(object):
         else:
             raise ValueError("Invalid argument in fit.setter: fit is not a function")
         
-    def encode(self, X: np.array, columns: List[int]=None):
+    def encode(self, X: np.ndarray, columns: List[int]=None):
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in encode: Index in parameter columns is out of range")
         X_copy = X
@@ -80,7 +80,7 @@ class Transformer(object):
                 j+=1
         return X_copy
     
-    def decode(self, X: np.array=None, columns: List[int]=None):
+    def decode(self, X: np.ndarray=None, columns: List[int]=None):
         if columns and not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in decode: Index in parameter columns is out of range")
         X_copy = X

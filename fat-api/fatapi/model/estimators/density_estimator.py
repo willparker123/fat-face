@@ -12,11 +12,11 @@ class DensityEstimator(object):
     
     Methods
     -------
-    fit(X: np.array, Y?: np.array) : np.array()
+    fit(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
         Method for fitting model to X, Y
-    score_samples(X: np.array, Y?: np.array) : np.array()
+    score_samples(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
         Method for calculating a score when predicting X and comparing with Y
-    score(X: np.array, Y?: np.array)? : np.array()
+    score(X: np.ndarray, Y?: np.ndarray)? : np.ndarray()
         Method for calculating a score when predicting X and comparing with Y
 
     """

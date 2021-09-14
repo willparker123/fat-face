@@ -28,7 +28,7 @@ class FACEMethod(ExplainabilityMethod):
     factuals_target? : fatapi.data.Data
         Data object containing target features of datapoints to be used in ExplainabilityMethod methods
         -- Only required if factuals and factuals_target are supplied to explain()
-    predict()? : (X: np.array) -> np.array()
+    predict()? : (X: np.ndarray) -> np.ndarray)
         Method for predicting the class label of X
         -- Only required if model not supplied
     model? : fatapi.model.Model
@@ -230,22 +230,23 @@ class FACEMethod(ExplainabilityMethod):
     def kernel_GS(self, **kwargs):
         return None
 
-    def check_edge(self, **kwargs):#X_1=X[i], X_2=X[j], weight=kernel_image[i, j], prediction=predict_image[i, j], conditions=conditions
-        if not (kwargs.get("X_1") and kwargs.get("X_2") and kwargs.get("weight") and kwargs.get("prediction") and kwargs.get("conditions")):
-            raise ValueError(f"Missing arguments in check_edge: {'' if kwargs.get('X_1') else 'X_1'} {'' if kwargs.get('X_2') else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('prediction') else 'prediction'} {'' if kwargs.get('conditions') else 'conditions'}")
-        if kwargs.get("X_1"):
-            X_1 = check_type(kwargs.get("X_1"), np.array, "check_edge")
-        if kwargs.get("X_2"):
-            X_2 = check_type(kwargs.get("X_2"), np.array, "check_edge")
+    def check_edge(self, **kwargs):
+        print(kwargs.get("prediction"))
+        if not (len(kwargs.get("X_1"))>0 and len(kwargs.get("X_2"))>0 and kwargs.get("weight") and kwargs.get("prediction") and kwargs.get("conditions")):
+            raise ValueError(f"Missing arguments in check_edge: {'' if len(kwargs.get('X_1'))>0 else 'X_1'} {'' if len(kwargs.get('X_2'))>0 else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('prediction') else 'prediction'} {'' if kwargs.get('conditions') else 'conditions'}")
+        if len(kwargs.get("X_1"))>0:
+            X_1 = check_type(kwargs.get("X_1"), np.ndarray, "check_edge")
+        if len(kwargs.get("X_2"))>0:
+            X_2 = check_type(kwargs.get("X_2"), np.ndarray, "check_edge")
         if kwargs.get("weight"):
             weight = check_type(kwargs.get("weight"), float, "check_edge")
         if kwargs.get("prediction"):
-            prediction = check_type(kwargs.get("prediction"), float, "check_edge")
+            prediction = kwargs.get("prediction")
         if kwargs.get("conditions"):
             conditions = check_type(kwargs.get("conditions"), Callable, "check_edge")
         return True
 
-    def get_kernel_image(self, kernel, X: np.array, t_prediction: float, t_density: float, t_distance: float, n_neighbours: int, K: int):
+    def get_kernel_image(self, X: np.ndarray, kernel, t_prediction: float, t_density: float, t_distance: float, n_neighbours: int, K: int):
         n_samples = X.shape[0]
         g = np.zeros([n_samples, n_samples], dtype=float)
         for i in range(n_samples):
@@ -264,22 +265,22 @@ class FACEMethod(ExplainabilityMethod):
         g = g + g.T - np.diag(np.diag(g))
         return g
     
-    def get_predictions(X: np.array, predictf: Callable):
+    def get_predictions(self, X: np.ndarray, predict: Callable):
         n_samples = X.shape[0]
         g = np.zeros([n_samples, 1], dtype=float)
         for x in range(n_samples):
-            g[x] = predictf(X[x, :])
+            g[x] = predict(X[x, :].reshape(1, -1))
         return g
 
     def build_graph(self, **kwargs):
-        if not (kwargs.get("X") and kwargs.get("kernel_image") and kwargs.get("predict_image") and kwargs.get("conditions")):
+        if not (len(kwargs.get("X"))>0 and len(kwargs.get("kernel_image"))>0 and len(kwargs.get("predict_image"))>0 and kwargs.get("conditions")):
             raise ValueError(f"Missing arguments in build_graph: {'' if kwargs.get('X') else 'X'} {'' if kwargs.get('kernel_image') else 'kernel_image'} {'' if kwargs.get('predict_image') else 'predict_image'} {'' if kwargs.get('conditions') else 'conditions'}")
-        if kwargs.get("X"):
-            X = check_type(kwargs.get("X"), np.array, "build_graph")
-        if kwargs.get("kernel_image"):
-            kernel_image = check_type(kwargs.get("kernel_image"), np.array, "build_graph")
-        if kwargs.get("predict_image"):
-            predict_image = check_type(kwargs.get("predict_image"), np.array, "build_graph")
+        if len(kwargs.get("X"))>0:
+            X = check_type(kwargs.get("X"), np.ndarray, "build_graph")
+        if len(kwargs.get("kernel_image"))>0:
+            kernel_image = check_type(kwargs.get("kernel_image"), np.ndarray, "build_graph")
+        if len(kwargs.get("predict_image"))>0:
+            predict_image = check_type(kwargs.get("predict_image"), np.ndarray, "build_graph")
         if kwargs.get("conditions"):
             conditions = check_type(kwargs.get("conditions"), Callable, "build_graph")
         if kwargs.get("shortest_path"):
@@ -287,23 +288,24 @@ class FACEMethod(ExplainabilityMethod):
         n_samples = X.shape[0]
         g = np.zeros([n_samples, n_samples], dtype=float)
         for i in range(n_samples):
+            print(predict_image[i, :])
             for j in range(i):
-                if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=kernel_image[i, j], prediction=predict_image[i, j], conditions=conditions):
+                if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=kernel_image[i, j], prediction=predict_image[i], conditions=conditions):
                     g[i, j] = kernel_image[i, j]
         g = g + g.T - np.diag(np.diag(g))
         return g
 
-    def explain_FACE(self, X: np.array, Y: np.array, factuals: np.array, factuals_target: np.array, **kwargs) -> Union[np.array, Tuple[np.array, np.array]]:
-        if not (X and Y):
+    def explain_FACE(self, X: np.ndarray, Y: np.ndarray, factuals: np.ndarray, factuals_target: np.ndarray, **kwargs) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+        if not (len(X)>0 and len(Y)>0):
             raise ValueError("Invalid arguments in explain_FACE: (self.data and self.target) or (X and Y) needed")
-        if X and not Y:
+        if len(X)>0 and not len(Y)>0:
             raise ValueError("Invalid arguments in explain_FACE: target needed for data; X supplied but not Y")
         if self.factuals and not self.factuals_target:
             raise ValueError("Invalid arguments in explain_FACE: self.factuals_target expected for self.factuals; factuals_target not supplied")
-        if not (self.factuals and self.factuals_target) or (factuals and factuals_target):
+        if not ((self.factuals and self.factuals_target) or (len(factuals)>0 and len(factuals_target)>0)):
             raise ValueError("Invalid arguments in explain_FACE: factuals and factuals_target or self.factuals and self.factuals_target expected")
         if not (X.shape[0]==Y.shape[0]):
-            raise ValueError("Invalid argument in explain_FACE: different number of points in X_ and Y_")
+            raise ValueError("Invalid argument in explain_FACE: different number of points in X and Y")
         t_den = self.t_density
         t_dist = self.t_distance
         t_pred = self.t_prediction
@@ -331,7 +333,7 @@ class FACEMethod(ExplainabilityMethod):
             k_n = check_type(kwargs.get("n_neighbours"), int, "explain_FACE")
         if kwargs.get("K"):
             K_ = check_type(kwargs.get("K"), int, "explain_FACE")
-
+        
         predict_image = self.get_predictions(X, pred_f)
         kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, k_n, K_)
 

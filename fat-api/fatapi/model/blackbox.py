@@ -14,13 +14,13 @@ class BlackBox(object):
     
     Methods
     -------
-    predict(X: np.array) : np.array()
+    predict(X: np.ndarray) : np.ndarray()
         Method for predicting the class label of X
-    predict_proba(X: np.array) : np.array()
+    predict_proba(X: np.ndarray) : np.ndarray()
         Method for predicting the probability of the prediction of X
-    fit(X: np.array, Y?: np.array) : np.array()
+    fit(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
         Method for fitting model to X, Y
-    score(X: np.array, Y?: np.array) : np.array()
+    score(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
         Method for calculating a score when predicting X and comparing with Y
 
     """
