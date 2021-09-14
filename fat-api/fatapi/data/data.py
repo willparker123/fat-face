@@ -1,6 +1,6 @@
 import numpy as np
 from typing import List
-from fatapi.helpers import not_in_range
+from fatapi.helpers import not_in_range, check_type
 
 class Data():
     """
@@ -16,7 +16,7 @@ class Data():
     numericals? : List[int]
         List of column indexes of numerical features (including target features)
         -- Default value is all columns of dataset
-    isEncoded? : boolean
+    encoded? : boolean
         Bool showing whether the dataset has already been encoded/normalised
 
     Methods
@@ -29,7 +29,7 @@ class Data():
                 dataset: np.array,
                 categoricals: List[int]=[], 
                 numericals: List[int]=[], 
-                isEncoded: bool=True,
+                encoded: bool=False,
                 dtype: str="data"):
         n_features = 1
         if len(dataset.shape) > 1:
@@ -53,7 +53,7 @@ class Data():
         if numericals:
             self._numericals = numericals
         self.dataset = dataset
-        self._isEncoded = isEncoded
+        self._encoded = encoded
         if len(self._categoricals) > 0 and not_in_range(self.n_features, self._categoricals):
             raise ValueError("Invalid arguments in __init__: Index in categoricals is out of range")
         if len(self._numericals) > 0 and not_in_range(self.n_features, self._numericals):
@@ -62,24 +62,21 @@ class Data():
             raise ValueError("Invalid arguments in __init__: dataset has no rows / datapoints")
     
     def get_rows_as_data(self, row_indicies: List[int]):
-        return Data(self.dataset[row_indicies, :], self.categoricals, self.numericals, self.isEncoded)
+        return Data(self.dataset[row_indicies, :], self.categoricals, self.numericals, self.encoded)
 
     @property
-    def isEncoded(self) -> bool:
+    def encoded(self) -> bool:
         """
-        Sets and changes isEncoded
+        Sets and changes encoded
         -------
         Callable
         """
         
-        return self._isEncoded
+        return self._encoded
 
-    @isEncoded.setter
-    def isEncoded(self, isEncoded) -> None:
-        if not type(isEncoded)==bool:
-            raise ValueError("Invalid argument in isEncoded.setter: isEncoded is not of type bool")   
-        else:
-            self._isEncoded = isEncoded
+    @encoded.setter
+    def encoded(self, encoded) -> None:
+        self._encoded = check_type(encoded, bool, "encoded.setter")
 
     @property
     def categoricals(self) -> List[int]:
@@ -93,12 +90,10 @@ class Data():
 
     @categoricals.setter
     def categoricals(self, categoricals) -> None:
-        if not type(categoricals)==List[int]:
-            raise ValueError("Invalid argument in categoricals.setter: categoricals is not of type List[int]")   
         if len(self._categoricals) > 0 and not_in_range(self.n_features, self._categoricals):
-            raise ValueError("Invalid argument in categoricals.setter: Index in categoricals is out of range")
-        else:
-            self._categoricals = categoricals
+            raise ValueError("Invalid argument in categoricals.setter: Index in categoricals is out of range")        
+        self._categoricals = check_type(categoricals, List[int], "categoricals.setter")
+        
 
     @property
     def numericals(self) -> List[int]:
@@ -112,12 +107,9 @@ class Data():
 
     @numericals.setter
     def numericals(self, numericals) -> None:
-        if not type(numericals)==List[int]:
-            raise ValueError("Invalid argument in numericals.setter: numericals is not of type List[int]")   
-        if len(self._numericals) > 0 and not_in_range(self.n_features, self._umericals):
+        if len(self._numericals) > 0 and not_in_range(self.n_features, self._numericals):
             raise ValueError("Invalid argument in numericals.setter: Index in numericals is out of range")
-        else:
-            self._numericals = numericals
+        self._numericals = check_type(numericals, List[int], "numericals.setter")
 
     def __str__(self):
-        return f"Data: {self.dataset}, Target: {self.target}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.isEncoded}"
+        return f"Data: {self.dataset}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.encoded}"

@@ -1,12 +1,12 @@
 
-from fatapi.model.estimator import Estimator
+from fatapi.model.estimators import Transformer
 from fatapi.data import Data
 from fatapi.model import BlackBox
 from typing import Callable, List
-from fatapi.helpers import not_in_range, keep_cols
+from fatapi.helpers import not_in_range, keep_cols, check_type
 import numpy as np
 
-class Model():
+class Model(object):
     """
     Abstract class containing methods used involving the model / interacting with the blackbox model
     
@@ -34,9 +34,9 @@ class Model():
     score()? : (X: np.array, Y?: np.array) -> np.array()
         Method for calculating a score when predicting X and comparing with Y
         -- Only required if blackbox not supplied
-    scaler? : fatapi.model.Estimator
+    scaler? : fatapi.model.Transformer
         Scaler for normalisation / scaling numericals features
-    encoder? : fatapi.model.Estimator
+    encoder? : fatapi.model.Transformer
         Encoder for encoding categorical features
     
     Methods
@@ -58,63 +58,45 @@ class Model():
         Inverse_transforms the data using scaler
         -- If no scaler, returns X
     """
-    def __init__(self, data: Data, target: Data=None, blackbox: BlackBox=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
-        if not blackbox and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
-            raise ValueError(f"Missing arguments in __init__: {'' if blackbox else 'blackbox'} {'' if kwargs.get('fit') else 'fit'} {'' if kwargs.get('predict') else 'predict'} {'' if kwargs.get('predict_proba') else 'predict_proba'} {'' if kwargs.get('score') else 'score'}")
-        if blackbox and (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
-            raise ValueError("Invalid arguments in __init__: please provide blackbox or (predict, predict_proba, fit, score)")
-        self.blackbox = blackbox
-        if (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
-            if kwargs.get('fit'):
-                if (callable(kwargs.get('fit'))):
-                    self._encoder = kwargs.get('fit')
-                else:
-                    raise ValueError("Invalid argument in __init__: fit is not a function")
-            if kwargs.get('predict'):
-                if (callable(kwargs.get('predict'))):
-                    self._encoder = kwargs.get('predict')
-                else:
-                    raise ValueError("Invalid argument in __init__: predict is not a function")
-            if kwargs.get('predict_proba'):
-                if (callable(kwargs.get('predict_proba'))):
-                    self._encoder = kwargs.get('predict_proba')
-                else:
-                    raise ValueError("Invalid argument in __init__: predict_proba is not a function")
-            if kwargs.get('score'):
-                if (callable(kwargs.get('score'))):
-                    self._encoder = kwargs.get('score')
-                else:
-                    raise ValueError("Invalid argument in __init__: score is not a function")
-        if type(data)==Data:
-            if data.isEncoded or (kwargs.get('encoder') and kwargs.get('scaler')):
-                d : Data = data
-                self.data = d
-            else:
-                raise ValueError("Invalid argument in __init__: data must be isEncoded or (scaler, encoder) must be supplied")
+    def __init__(self, data: Data, target: Data=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
+        if not kwargs.get("blackbox") and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
+            raise ValueError(f"Missing arguments in __init__: [{'' if kwargs.get('blackbox') else 'blackbox'}, {'' if kwargs.get('fit') else 'fit'}, {'' if kwargs.get('predict') else 'predict'}, {'' if kwargs.get('predict_proba') else 'predict_proba'}, {'' if kwargs.get('score') else 'score'}]")
+        if kwargs.get("blackbox"):
+            self.blackbox = check_type(kwargs.get("blackbox"), BlackBox, "__init__")
+            self._fit = self.blackbox.fit
+            self._predict = self.blackbox.predict
+            self._predict_proba = self.blackbox.predict_proba
+            self._score = self.blackbox.score
         else:
-            raise ValueError("Invalid argument in __init__: data must be of type fatapi.data.Data")
+            if kwargs.get('fit'):
+                self._fit = check_type(kwargs.get("fit"), Callable, "__init__")
+            if kwargs.get('predict'):
+                self._predict = check_type(kwargs.get("predict"), Callable, "__init__")
+            if kwargs.get('predict_proba'):
+                self._predict_proba = check_type(kwargs.get("predict_proba"), Callable, "__init__")
+            if kwargs.get('score'):
+                self._score = check_type(kwargs.get("score"), Callable, "__init__")
+        data = check_type(data, Data, "__init__")
+        if data.encoded or (kwargs.get('encoder') and kwargs.get('scaler')):
+            d : Data = data
+            self.data = d
+        else:
+            raise ValueError("Invalid argument in __init__: data must be encoded or (scaler, encoder) must be supplied")
         if kwargs.get('encoder'):
-            if (type(kwargs.get('encoder'))==Estimator):
-                self._encoder = kwargs.get('encoder')
-            else:
-                raise ValueError("Invalid argument in __init__: encoder is not an Estimator")
+            self._encoder = check_type(kwargs.get("encoder"), Transformer, "__init__")
         if kwargs.get('scaler'):
-            if (type(kwargs.get('scaler'))==Estimator):
-                self._encoder = kwargs.get('scaler')
-            else:
-                raise ValueError("Invalid argument in __init__: scaler is not an Estimator")
+            self._scaler = check_type(kwargs.get("scaler"), Transformer, "__init__")
         if target:
+            target = check_type(target, Data, "__init__")
             if (target.n_data == data.n_data):
-                if type(target)==Data:
-                    if target.isEncoded or (kwargs.get('encoder') and kwargs.get('scaler')):
-                        t : Data = target
-                        self.target = t
-                    else:
-                        raise ValueError("Invalid argument in __init__: target must be isEncoded or (scaler, encoder) must be supplied")
+                if target.encoded or (kwargs.get('encoder') and kwargs.get('scaler')):
+                    t : Data = target
+                    self.target = t
                 else:
-                    raise ValueError("Invalid argument in __init__: target is not of type fatapi.data.Data")
+                    raise ValueError("Invalid argument in __init__: target must be encoded or (scaler, encoder) must be supplied")
             else:
                 raise ValueError("Invalid argument in __init__: target is not of same shape[0] as data")
+            
         self.X_tofit = X_tofit
         self.Y_tofit = Y_tofit
         if Y_tofit and not target:
@@ -128,7 +110,7 @@ class Model():
             else:
                 self.fitted_data = self.train(d)
         except:
-            raise ValueError("Invalid argument in model.fit: has to take (X: numpy.array, Y: numpy.array)")
+            raise ValueError("Error in model.train: self.train failed - please provide numpy.arrays to self.fit")
 
     def get_fitted_data(self):
         return self.fitted_data
@@ -156,17 +138,11 @@ class Model():
         -------
         Callable
         """
-        if self.blackbox:
-            return self.blackbox.fit
-        else:
-            return self._fit
+        return self._fit
 
     @fit.setter
-    def fit(self, _fit) -> None:
-        if callable(_fit):
-            self._fit = _fit
-        else:
-            raise ValueError("Invalid argument in fit.setter: _fit is not a function")
+    def fit(self, fit) -> None:
+        self._fit = check_type(fit, Callable, "fit.setter")
         
     @property
     def predict(self) -> Callable:
@@ -175,17 +151,11 @@ class Model():
         -------
         Callable
         """
-        if self.blackbox:
-            return self.blackbox.predict
-        else:
-            return self._predict
+        return self._predict
 
     @predict.setter
     def predict(self, predict) -> None:
-        if callable(predict):
-            self._predict = predict
-        else:
-            raise ValueError("Invalid argument in predict.setter: _predict is not a function")
+        self._predict = check_type(predict, Callable, "predict.setter")
         
     @property
     def predict_proba(self) -> Callable:
@@ -194,17 +164,11 @@ class Model():
         -------
         Callable
         """
-        if self.blackbox:
-            return self.blackbox.predict_proba
-        else:
-            return self._predict_proba
+        return self._predict_proba
 
     @predict_proba.setter
     def predict_proba(self, predict_proba) -> None:
-        if callable(predict_proba):
-            self._predict_proba = predict_proba
-        else:
-            raise ValueError("Invalid argument in predict_proba.setter: predict_probaf is not a function")
+        self._predict_proba = check_type(predict_proba, Callable, "predict_proba.setter")
         
     @property
     def score(self) -> Callable:
@@ -213,37 +177,28 @@ class Model():
         -------
         Callable
         """
-        if self.blackbox:
-            return self.blackbox.score
-        else:
-            return self._score
+        return self._score
 
     @score.setter
     def score(self, score) -> None:
-        if callable(score):
-            self._score = score
-        else:
-            raise ValueError("Invalid argument in score.setter: _score is not a function")
+        self._score = check_type(score, Callable, "score.setter")
         
     @property
-    def encoder(self) -> Estimator:
+    def encoder(self) -> Transformer:
         """
         Sets and changes the encoder method of the model
         -------
-        Estimator
+        Transformer
         """
         
         return self._encoder
 
     @encoder.setter
     def encoder(self, encoder) -> None:
-        if callable(encoder):
-            self._encoder = encoder
-        else:
-            raise ValueError("Invalid argument in encoder.setter: encoder is not an Estimator")
+        self._encoder = check_type(encoder, Transformer, "encoder.setter")
         
     @property
-    def scaler(self) -> Estimator:
+    def scaler(self) -> Transformer:
         """
         Sets and changes the scaler method of the model
         -------
@@ -254,10 +209,7 @@ class Model():
 
     @scaler.setter
     def scaler(self, scaler) -> None:
-        if callable(scaler):
-            self._scaler = scaler
-        else:
-            raise ValueError("Invalid argument in scaler.setter: scalerf is not a function")
+        self._scaler = check_type(scaler, Transformer, "scaler.setter")
         
     def encode(self, X: np.array, columns: List[int]=None):
         if not_in_range(X.shape[1], columns):
@@ -353,7 +305,7 @@ class Model():
                 return (X)
             else:
                 X_, Y_ = self.data.dataset, self.target.dataset
-                if not self.data.isEncoded:
+                if not self.data.encoded:
                     if cols_encode:
                         X_ = self.encode(self.data.dataset, cols_encode)
                     else:
@@ -362,7 +314,7 @@ class Model():
                         X_ = self.scale(self.data.dataset, cols_scale)
                     else:
                         X_ = self.scale(self.data.dataset, self.data.numericals)
-                if not self.target.isEncoded:
+                if not self.target.encoded:
                     if cols_encode:
                         Y_ = self.encode(self.target.dataset, cols_encode)
                     else:
@@ -375,3 +327,6 @@ class Model():
                 self.fit(X_,Y_.ravel())
                 print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
                 return (X_,Y_)
+    
+    def __str__(self):
+        return f"Data: {self.data}, Target: {self.target}, X_tofit: {self.X_tofit}, Y_tofit: {self.Y_tofit}"

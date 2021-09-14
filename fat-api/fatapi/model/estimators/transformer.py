@@ -2,14 +2,15 @@ import numpy as np
 
 from fatapi.helpers import not_in_range, keep_cols
 from typing import Callable, List
-class Estimator():
+
+class Transformer(object):
     """
     Abstract class for scaling and encoding data to be passed as a parameter to explainability methods
     
     Parameters
     ----------
     fit(X: numpy.array, columns?: List[int]) -> numpy.array:
-        Fits the estimator to X - creates category dict internally
+        Fits the transformer to X - creates category dict internally
     transform(X: numpy.array, columns?: List[int]) -> numpy.array:
         Generate transformed data from X using columns[] - requires fit
     inverse_transform(X: numpy.array, columns?: List[int]) -> numpy.array:
@@ -18,7 +19,7 @@ class Estimator():
     Methods
     -------
     fit(X: numpy.array, columns?: List[int]) -> numpy.array:
-        Fits the estimator to X - creates category dict internally
+        Fits the transformer to X - creates category dict internally
     transform(X: numpy.array, columns?: List[int]) -> numpy.array:
         Generate transformed data from X using columns[] - requires fit
     inverse_transform(X: numpy.array, columns?: List[int]) -> numpy.array:
@@ -47,7 +48,7 @@ class Estimator():
     @property
     def fit(self) -> Callable:
         """
-        Sets and changes the fit method of the estimator
+        Sets and changes the fit method of the transformer
         -------
         Callable
         """
@@ -95,4 +96,3 @@ class Estimator():
                 X_copy[:, i] = X_rem[:, j]
                 j+=1
         return X_copy
-        

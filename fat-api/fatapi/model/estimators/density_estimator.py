@@ -1,12 +1,10 @@
 
-from fatapi.model.estimators import Transformer
-from fatapi.helpers import check_type
 from typing import Callable
 import numpy as np
 
-class BlackBox(object):
+class DensityEstimator(object):
     """
-    Abstract class representing an ML model with predictive methods
+    Abstract class used for KDE and GS kernels to get density scores from data
     
     Parameters
     ----------
@@ -14,13 +12,11 @@ class BlackBox(object):
     
     Methods
     -------
-    predict(X: np.array) : np.array()
-        Method for predicting the class label of X
-    predict_proba(X: np.array) : np.array()
-        Method for predicting the probability of the prediction of X
     fit(X: np.array, Y?: np.array) : np.array()
         Method for fitting model to X, Y
-    score(X: np.array, Y?: np.array) : np.array()
+    score_samples(X: np.array, Y?: np.array) : np.array()
+        Method for calculating a score when predicting X and comparing with Y
+    score(X: np.array, Y?: np.array)? : np.array()
         Method for calculating a score when predicting X and comparing with Y
 
     """
@@ -46,10 +42,6 @@ class BlackBox(object):
                 pass
         except:
             raise ValueError("Invalid argument in __init__: classifier does not have function score")
-        self._fit = self.classifier.fit
-        self._score = self.classifier.score
-        self._predict = self.classifier.predict
-        self._predict_proba = self.classifier.predict_proba
 
     @property
     def fit(self) -> Callable:
@@ -58,11 +50,17 @@ class BlackBox(object):
         -------
         Callable
         """
-        return self._fit
+        if hasattr(self, '_fit'):
+            return self._fit
+        else:
+            return self.classifier.fit
 
     @fit.setter
     def fit(self, fit) -> None:
-        self._fit = check_type(fit, Callable, "fit.setter")
+        if callable(fit):
+            self._fit = fit
+        else:
+            raise ValueError("Invalid argument in fit.setter: _fit is not a function")
         
     @property
     def predict(self) -> Callable:
@@ -71,12 +69,17 @@ class BlackBox(object):
         -------
         Callable
         """
-        
-        return self._predict
+        if hasattr(self, '_predict'):
+            return self._predict
+        else:
+            return self.classifier.predict
 
     @predict.setter
-    def predict(self, predict) -> None:
-        self._predict = check_type(predict, Callable, "predict.setter")
+    def predict(self, _predict) -> None:
+        if callable(_predict):
+            self._predict = _predict
+        else:
+            raise ValueError("Invalid argument in predict.setter: _predict is not a function")
         
     @property
     def predict_proba(self) -> Callable:
@@ -85,12 +88,17 @@ class BlackBox(object):
         -------
         Callable
         """
-
-        return self._predict_proba
+        if hasattr(self, 'predict_probaf'):
+            return self.predict_probaf
+        else:
+            return self.classifier.predict_proba
 
     @predict_proba.setter
-    def predict_proba(self, predict_proba) -> None:
-        self._predict_proba = check_type(predict_proba, Callable, "predict_proba.setter")
+    def predict_proba(self, predict_probaf) -> None:
+        if callable(predict_probaf):
+            self.predict_probaf = predict_probaf
+        else:
+            raise ValueError("Invalid argument in predict_proba.setter: predict_probaf is not a function")
         
     @property
     def score(self) -> Callable:
@@ -99,8 +107,14 @@ class BlackBox(object):
         -------
         Callable
         """
-        return self._score
+        if hasattr(self, '_score'):
+            return self._score
+        else:
+            return self.classifier.score
 
     @score.setter
-    def score(self, score) -> None:
-        self._score = check_type(score, Callable, "score.setter")
+    def score(self, _score) -> None:
+        if callable(_score):
+            self._score = _score
+        else:
+            raise ValueError("Invalid argument in score.setter: _score is not a function")
