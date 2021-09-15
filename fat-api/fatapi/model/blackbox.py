@@ -14,13 +14,13 @@ class BlackBox(object):
     
     Methods
     -------
-    predict(X: np.ndarray) : np.ndarray()
+    predict() : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
-    predict_proba(X: np.ndarray) : np.ndarray()
+    predict_proba() : (X: np.ndarray) -> np.ndarray
         Method for predicting the probability of the prediction of X
-    fit(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
+    fit() : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
         Method for fitting model to X, Y
-    score(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
+    score()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
         Method for calculating a score when predicting X and comparing with Y
 
     """
@@ -41,13 +41,12 @@ class BlackBox(object):
                 pass
         except:
             raise ValueError("Invalid argument in __init__: classifier does not have function fit")
-        try:
-            if callable(getattr(classifier, "score")):
-                pass
-        except:
-            raise ValueError("Invalid argument in __init__: classifier does not have function score")
+        if callable(getattr(classifier, "score")):
+            self._score = self.classifier.score
+            pass
+        else:
+            raise ValueError("Invalid argument in __init__: score is not a function")
         self._fit = self.classifier.fit
-        self._score = self.classifier.score
         self._predict = self.classifier.predict
         self._predict_proba = self.classifier.predict_proba
 

@@ -22,16 +22,16 @@ class Model(object):
     X_tofit? : List[int]
         List of column indexes for features in data.dataset; if None, all columns in data.dataset
     Y_tofit? : List[int]
-    predict()? : (X: np.ndarray) ->np.ndarray()
+    predict()? : (X: np.ndarray) ->np.ndarray
         Method for predicting the class label of X
         -- Only required if blackbox not supplied
-    predict_proba()? : (X: np.ndarray) -> np.ndarray()
+    predict_proba()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the probability of the prediction of X
         -- Only required if blackbox not supplied
-    fit()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray()
+    fit()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
         Method for fitting model to X, Y
         -- Only required if blackbox not supplied
-    score()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray()
+    score()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
         Method for calculating a score when predicting X and comparing with Y
         -- Only required if blackbox not supplied
     scaler? : fatapi.model.Transformer
@@ -59,14 +59,15 @@ class Model(object):
         -- If no scaler, returns X
     """
     def __init__(self, data: Data, target: Data=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
-        if not kwargs.get("blackbox") and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba') and kwargs.get('score')):
+        if not kwargs.get("blackbox") and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba')):
             raise ValueError(f"Missing arguments in __init__: [{'' if kwargs.get('blackbox') else 'blackbox'}, {'' if kwargs.get('fit') else 'fit'}, {'' if kwargs.get('predict') else 'predict'}, {'' if kwargs.get('predict_proba') else 'predict_proba'}, {'' if kwargs.get('score') else 'score'}]")
         if kwargs.get("blackbox"):
             self.blackbox = check_type(kwargs.get("blackbox"), BlackBox, "__init__")
             self._fit = self.blackbox.fit
             self._predict = self.blackbox.predict
             self._predict_proba = self.blackbox.predict_proba
-            self._score = self.blackbox.score
+            if self.blackbox.score:
+                self._score = self.blackbox.score
         else:
             if kwargs.get('fit'):
                 self._fit = check_type(kwargs.get("fit"), Callable, "__init__")

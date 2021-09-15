@@ -1,5 +1,6 @@
 
 from typing import Callable
+from fatapi.helpers import check_type
 import numpy as np
 
 class DensityEstimator(object):
@@ -8,113 +9,77 @@ class DensityEstimator(object):
     
     Parameters
     ----------
-    classifier : attr(predict, predict_proba, fit, score)
+    distance_function() : (X: np.ndarray, Y: np.npdarray)
+        Calculates distance between X and Y
+        -- Default is Euclidean distance
+    transformation_function() : (X: np.ndarray)
+        Transforms X
+        -- Default is -np.log(X)
     
     Methods
     -------
-    fit(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
-        Method for fitting model to X, Y
-    score_samples(X: np.ndarray, Y?: np.ndarray) : np.ndarray()
+    fit(X: np.ndarray) : np.ndarray
+        Method for fitting density estimator to X
+    score(X: np.ndarray, K?: int) : np.ndarray
+        Method for calculating a score after transforming x and comparing against distances of X
+    score_samples(X: np.ndarray, K?: int) : np.ndarray
         Method for calculating a score when predicting X and comparing with Y
-    score(X: np.ndarray, Y?: np.ndarray)? : np.ndarray()
-        Method for calculating a score when predicting X and comparing with Y
-
     """
     def __init__(self, classifier, **kwargs) -> None:
-        self.classifier = classifier
-        try:
-            if callable(getattr(classifier, "predict")):
-                pass
-        except:
-            raise ValueError("Invalid argument in __init__: classifier does not have function predict")
-        try:
-            if callable(getattr(classifier, "predict_proba")):
-                pass
-        except:
-            raise ValueError("Invalid argument in __init__: classifier does not have function predict_proba")
-        try:
-            if callable(getattr(classifier, "fit")):
-                pass
-        except:
-            raise ValueError("Invalid argument in __init__: classifier does not have function fit")
-        try:
-            if callable(getattr(classifier, "score")):
-                pass
-        except:
-            raise ValueError("Invalid argument in __init__: classifier does not have function score")
+        if kwargs.get("distance_function"): 
+            self._distance_function = check_type(kwargs.get("distance_function"), Callable, "__init__")
+        else:
+            self._distance_function = lambda x, y: np.linalg.norm(x.reshape(-1, 1) - y.reshape(-1, 1))
+            
+        if kwargs.get("transformation_function"): 
+            self._transformation_function = check_type(kwargs.get("transformation_function"), Callable, "__init__")
+        else:
+            self._transformation_function = lambda x: -np.log(x)
+        
+    def _fit(self, X):
+        self.X = X
+        self.n_samples = X.shape[0]   
+    
+    def score(self, X: np.ndarray, K: int=10):
+        distances = np.zeros(self.n_samples)
+        for idx in range(self.n_samples):
+            distances[idx] = self.distance_function(X, self.X[idx, :])
+        return self.transformation_function(np.sort(distances)[K])
+    
+    def score_samples(self, X: np.ndarray, K: int=10):
+        n_samples_test = X.shape[0]
+        if n_samples_test == 1:
+            return self.score_samples_single(X)
+        else:
+            scores = np.zeros((n_samples_test, 1))
+            for idx in range(n_samples_test):
+                scores[idx] = self.score(X[idx, :], K)
+            return scores
 
     @property
-    def fit(self) -> Callable:
+    def distance_function(self) -> Callable:
         """
-        Sets and changes the fit method of the model
+        Sets and changes the distance_function method of the density estimator
         -------
         Callable
         """
-        if hasattr(self, '_fit'):
-            return self._fit
-        else:
-            return self.classifier.fit
+        
+        return self._distance_function
 
-    @fit.setter
-    def fit(self, fit) -> None:
-        if callable(fit):
-            self._fit = fit
-        else:
-            raise ValueError("Invalid argument in fit.setter: _fit is not a function")
+    @distance_function.setter
+    def distance_function(self, distance_function) -> None:
+        self._distance_function = check_type(distance_function, Callable, "distance_function.setter")
         
     @property
-    def predict(self) -> Callable:
+    def transformation_function(self) -> Callable:
         """
-        Sets and changes the predict method of the model
+        Sets and changes the transformation_function method of the density estimator
         -------
         Callable
         """
-        if hasattr(self, '_predict'):
-            return self._predict
-        else:
-            return self.classifier.predict
-
-    @predict.setter
-    def predict(self, _predict) -> None:
-        if callable(_predict):
-            self._predict = _predict
-        else:
-            raise ValueError("Invalid argument in predict.setter: _predict is not a function")
         
-    @property
-    def predict_proba(self) -> Callable:
-        """
-        Sets and changes the predict_proba method of the model
-        -------
-        Callable
-        """
-        if hasattr(self, 'predict_probaf'):
-            return self.predict_probaf
-        else:
-            return self.classifier.predict_proba
+        return self._transformation_function
 
-    @predict_proba.setter
-    def predict_proba(self, predict_probaf) -> None:
-        if callable(predict_probaf):
-            self.predict_probaf = predict_probaf
-        else:
-            raise ValueError("Invalid argument in predict_proba.setter: predict_probaf is not a function")
-        
-    @property
-    def score(self) -> Callable:
-        """
-        Sets and changes the score method of the model
-        -------
-        Callable
-        """
-        if hasattr(self, '_score'):
-            return self._score
-        else:
-            return self.classifier.score
-
-    @score.setter
-    def score(self, _score) -> None:
-        if callable(_score):
-            self._score = _score
-        else:
-            raise ValueError("Invalid argument in score.setter: _score is not a function")
+    @transformation_function.setter
+    def transformation_function(self, transformation_function) -> None:
+        self._transformation_function = check_type(transformation_function, Callable, "transformation_function.setter")
