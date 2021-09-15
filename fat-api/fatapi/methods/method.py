@@ -68,6 +68,9 @@ class ExplainabilityMethod(object):
             else:
                 print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require factuals_target argument")
 
+    def get_processed_data(self):
+        return self._processed_X
+
     @property
     def data(self) -> Callable:
         """
@@ -194,16 +197,20 @@ class ExplainabilityMethod(object):
         if len(facts_target_)>0:
             if len(X_)>0:
                 if len(Y_)>0:
+                    self._processed_X = X_
                     return self._explain(X=X_, Y=Y_, factuals=facts_, factuals_target=facts_target_, predict=_predict)
                 else:
+                    self._processed_X = X_
                     return self._explain(X=X_, factuals=facts_, factuals_target=facts_target_, predict=_predict)
             else:
                 return self._explain(factuals=facts_, factuals_target=facts_target_, predict=_predict)
         else:
             if len(X_)>0:
                 if len(Y_)>0:
+                    self._processed_X = X_
                     return self._explain(X=X_, Y=Y_, factuals=facts_, predict=_predict)
                 else:
+                    self._processed_X = X_
                     return self._explain(X=X_, factuals=facts_, predict=_predict)
             else:
                 return self._explain(factuals=facts_, predict=_predict)
