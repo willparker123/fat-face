@@ -2,7 +2,7 @@ from fatapi.model import Model
 from fatapi.model.estimators import Transformer
 from fatapi.data import Data
 from fatapi.helpers import dijkstra
-from typing import Callable, Tuple, Union
+from typing import Callable, Tuple, Union, List
 from fatapi.methods import ExplainabilityMethod
 from fatapi.helpers import check_type
 import numpy as np
@@ -219,21 +219,18 @@ class FACEMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in kernel.setter: kernel_type is not 'kde', 'knn', 'e' or 'gs'") 
 
     def kernel_KDE(self, **kwargs):
-        return None
+        return 0
         
     def kernel_KNN(self, **kwargs):
-        return None
+        return 0
         
     def kernel_E(self, **kwargs):
-        return None
+        return 0
 
     def kernel_GS(self, **kwargs):
-        return None
+        return 0
 
     def check_edge(self, **kwargs):
-        print(kwargs.get("prediction"))
-        if not (len(kwargs.get("X_1"))>0 and len(kwargs.get("X_2"))>0 and kwargs.get("weight") and kwargs.get("prediction") and kwargs.get("conditions")):
-            raise ValueError(f"Missing arguments in check_edge: {'' if len(kwargs.get('X_1'))>0 else 'X_1'} {'' if len(kwargs.get('X_2'))>0 else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('prediction') else 'prediction'} {'' if kwargs.get('conditions') else 'conditions'}")
         if len(kwargs.get("X_1"))>0:
             X_1 = check_type(kwargs.get("X_1"), np.ndarray, "check_edge")
         if len(kwargs.get("X_2"))>0:
@@ -244,6 +241,8 @@ class FACEMethod(ExplainabilityMethod):
             prediction = kwargs.get("prediction")
         if kwargs.get("conditions"):
             conditions = check_type(kwargs.get("conditions"), Callable, "check_edge")
+        if not kwargs.get("weight")==None and kwargs.get("prediction")==None and len(kwargs.get("X_1"))<=0 and len(kwargs.get("X_2"))<=0:
+            raise ValueError(f"Missing arguments in check_edge: {'' if len(kwargs.get('X_1'))>0 else 'X_1'} {'' if len(kwargs.get('X_2'))>0 else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('prediction') else 'prediction'} {'' if kwargs.get('conditions') else 'conditions'}")
         return True
 
     def get_kernel_image(self, X: np.ndarray, kernel, t_prediction: float, t_density: float, t_distance: float, n_neighbours: int, K: int):
@@ -267,9 +266,9 @@ class FACEMethod(ExplainabilityMethod):
     
     def get_predictions(self, X: np.ndarray, predict: Callable):
         n_samples = X.shape[0]
-        g = np.zeros([n_samples, 1], dtype=float)
+        g = []
         for x in range(n_samples):
-            g[x] = predict(X[x, :].reshape(1, -1))
+            g.append(predict(X[x, :].reshape(1, -1))[0])
         return g
 
     def build_graph(self, **kwargs):
@@ -280,7 +279,7 @@ class FACEMethod(ExplainabilityMethod):
         if len(kwargs.get("kernel_image"))>0:
             kernel_image = check_type(kwargs.get("kernel_image"), np.ndarray, "build_graph")
         if len(kwargs.get("predict_image"))>0:
-            predict_image = check_type(kwargs.get("predict_image"), np.ndarray, "build_graph")
+            predict_image = check_type(kwargs.get("predict_image"), list, "build_graph")
         if kwargs.get("conditions"):
             conditions = check_type(kwargs.get("conditions"), Callable, "build_graph")
         if kwargs.get("shortest_path"):
@@ -288,7 +287,6 @@ class FACEMethod(ExplainabilityMethod):
         n_samples = X.shape[0]
         g = np.zeros([n_samples, n_samples], dtype=float)
         for i in range(n_samples):
-            print(predict_image[i, :])
             for j in range(i):
                 if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=kernel_image[i, j], prediction=predict_image[i], conditions=conditions):
                     g[i, j] = kernel_image[i, j]
