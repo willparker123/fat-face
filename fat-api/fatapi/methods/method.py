@@ -23,6 +23,9 @@ class ExplainabilityMethod(object):
     predict()? : (X: np.array) -> np.array()
         Method for predicting the class label of X
         -- Only required if model not supplied
+    predict_proba()? : (X: np.array) -> Float
+        Method for getting the probability of X being the predicted class label
+        -- Only required if model not supplied
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
@@ -39,14 +42,17 @@ class ExplainabilityMethod(object):
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
     """
     def __init__(self, factuals=None, factuals_target=None, **kwargs) -> None:
-        if not (kwargs.get('predict') or kwargs.get('model')) or (kwargs.get('predict') and kwargs.get('model')):
+        if not ((kwargs.get('predict') and kwargs.get('predict_proba')) or kwargs.get('model')):
             raise ValueError(f"Invalid arguments in __init__: please provide model or predict function but not both")
         if kwargs.get('model'):
             m = check_type(kwargs.get("model"), Model, "__init__")
             self._model: Model = m
             self._predict = self._model.predict
+            self._predict_proba = self._model.predict_proba
         if kwargs.get('predict'):
             self._predict = check_type(kwargs.get("predict"), Callable, "__init__")
+        if kwargs.get('predict_proba'):
+            self._predict_proba = check_type(kwargs.get("predict_proba"), Callable, "__init__")
         self._explain = lambda **kwargs: kwargs
         if kwargs.get('explain'):
             self._explain = check_type(kwargs.get("explain"), Callable, "__init__")
@@ -58,16 +64,15 @@ class ExplainabilityMethod(object):
             self._data = check_type(kwargs.get("data"), Data, "__init__")
         if kwargs.get('target'):
             self._target = check_type(kwargs.get("target"), Data, "__init__")
+        if factuals:
+            self._factuals = factuals
         else:
-            if factuals:
-                self._factuals = factuals
-            else:
-                print("Warning: No datapoints supplied as factuals - counterfactual methods require factuals argument")
-            if factuals_target:
-                self._factuals_target = factuals_target
-            else:
-                print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require factuals_target argument")
-
+            print("Warning: No datapoints supplied as factuals - counterfactual methods require factuals argument")
+        if factuals_target:
+            self._factuals_target = factuals_target
+        else:
+            print("Warning: No targets supplied for factuals (datapoints) - counterfactual methods require factuals_target argument")
+        
     def get_processed_data(self):
         return self._processed_X
 
@@ -114,6 +119,20 @@ class ExplainabilityMethod(object):
         self._predict = check_type(predict, Callable, "predict.setter")
         
     @property
+    def predict_proba(self) -> Callable:
+        """
+        Sets and changes the predict_proba method of the explainability method
+        -------
+        Callable
+        """
+        
+        return self._predict_proba
+
+    @predict_proba.setter
+    def predict_proba(self, predict_proba) -> None:
+        self._predict_proba = check_type(predict_proba, Callable, "predict_proba.setter")
+    
+    @property
     def model(self) -> Model:
         """
         Sets and changes the model attribute of the explainability method
@@ -159,12 +178,12 @@ class ExplainabilityMethod(object):
             else:
                 raise ValueError("Invalid argument in factuals_target.setter: factuals_target has a different number of points than factuals")
 
-    def explain(self, X: np.array=[], Y: np.array=[], facts: np.array=[], facts_target: np.array=[], predict: Callable=None, **kwargs) -> Union[np.array, Tuple[np.array, np.array]]:
+    def explain(self, X: np.array=[], Y: np.array=[], factuals: np.array=[], factuals_target: np.array=[], predict: Callable=None, predict_proba: Callable=None, **kwargs) -> Union[np.array, Tuple[np.array, np.array]]:
         facts_, facts_target_ = self.preprocess_factuals()
-        if len(facts)>0:
-            facts_ = facts
-        if len(facts_target)>0:
-            facts_target_ = facts_target
+        if len(factuals)>0:
+            facts_ = factuals
+        if len(factuals_target)>0:
+            facts_target_ = factuals_target
         X_ = []
         Y_ = []
         if len(X)<=0 and not self._model and not self.data:
@@ -190,6 +209,10 @@ class ExplainabilityMethod(object):
             _predict = predict
         else:
             _predict = self._predict
+        if predict_proba:
+            _predict_proba = predict_proba
+        else:
+            _predict_proba = self._predict_proba
         if len(Y_)>0 and not (X_.shape[0]==Y_.shape[0]):
                 raise ValueError("Invalid argument in explain: different number of points in data and target")
         if not (facts_.shape[0]==facts_target_.shape[0]):
@@ -198,22 +221,22 @@ class ExplainabilityMethod(object):
             if len(X_)>0:
                 if len(Y_)>0:
                     self._processed_X = X_
-                    return self._explain(X=X_, Y=Y_, factuals=facts_, factuals_target=facts_target_, predict=_predict)
+                    return self._explain(X=X_, Y=Y_, factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba)
                 else:
                     self._processed_X = X_
-                    return self._explain(X=X_, factuals=facts_, factuals_target=facts_target_, predict=_predict)
+                    return self._explain(X=X_, factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba)
             else:
-                return self._explain(factuals=facts_, factuals_target=facts_target_, predict=_predict)
+                return self._explain(factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba)
         else:
             if len(X_)>0:
                 if len(Y_)>0:
                     self._processed_X = X_
-                    return self._explain(X=X_, Y=Y_, factuals=facts_, predict=_predict)
+                    return self._explain(X=X_, Y=Y_, factuals=facts_, predict=_predict, predict_proba=_predict_proba)
                 else:
                     self._processed_X = X_
-                    return self._explain(X=X_, factuals=facts_, predict=_predict)
+                    return self._explain(X=X_, factuals=facts_, predict=_predict, predict_proba=_predict_proba)
             else:
-                return self._explain(factuals=facts_, predict=_predict)
+                return self._explain(factuals=facts_, predict=_predict, predict_proba=_predict_proba)
 
     def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None) -> Union[Tuple[np.array, np.array], np.array]:
         if not self.factuals and not factuals:

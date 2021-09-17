@@ -4,7 +4,7 @@ from fatapi.data import Data
 from fatapi.helpers import dijkstra, sigmoid
 from typing import Callable, Tuple, Union, List
 from fatapi.methods import ExplainabilityMethod
-from fatapi.helpers import check_type
+from fatapi.helpers import check_type, get_volume_of_sphere
 import numpy as np
 
 class FACEMethod(ExplainabilityMethod):
@@ -45,9 +45,15 @@ class FACEMethod(ExplainabilityMethod):
     n_neighbours? : Int
         Number of neighbours to take into account when using knn kernel
         -- Only required if kernel_type is "knn"
+        -- Default is 20
     K? : Int
         Number of neighbours to take into account when using gs kernel
         -- Only required if kernel_type is "gs"
+        -- Default is 10
+    t_radius? : Int
+        Number of neighbours to take into account when using gs kernel
+        -- Only required if kernel_type is "gs"
+        -- Default is 1.10
     t_distance? : Float
         Threshold of distance between nodes to constitute a non-zero weight
         -- Default is 10000
@@ -76,8 +82,9 @@ class FACEMethod(ExplainabilityMethod):
 
     Methods
     -------
-    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
+    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> (graph: numpy.array, distances: numpy.array, paths: numpy.array, candidate_targets: List[int])
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
+        Returns a graph (N x N where N=n_samples), distances (len(paths) x )
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
                                             scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> numpy.array
@@ -91,7 +98,7 @@ class FACEMethod(ExplainabilityMethod):
     """
     def __init__(self, *args, **kwargs) -> None:
         super(FACEMethod, self).__init__(*args, **kwargs)
-        if not kwargs.get("factuals") and kwargs.get("factuals_target"):
+        if not (kwargs.get("factuals") and kwargs.get("factuals_target")):
             print("Warning in __init__: factuals and factuals_target not supplied - need to provide X and Y to explain()")
         if not (kwargs.get('kernel') or kwargs.get('kernel_type')):
             raise ValueError(f"Invalid arguments in __init__: please provide kernel or kernel_type")
@@ -112,12 +119,13 @@ class FACEMethod(ExplainabilityMethod):
             self.data = check_type(kwargs.get("data"), Data, "__init__")
         if kwargs.get('target'):
             self.target = check_type(kwargs.get("target"), Data, "__init__")
-        self.t_distance = 10000
-        self.epsilon = 0.75
-        self.t_prediction = 0.5
-        self.t_density = 0.001
-        self.n_neighbours = 20
-        self.K = 10
+        self._t_distance = 10000
+        self._epsilon = 0.75
+        self._t_prediction = 0.5
+        self._t_density = 0.001
+        self._n_neighbours = 20
+        self._K = 10
+        self._t_radius = 1.10
         self._shortest_path = dijkstra
         self._conditions = lambda **kwargs: True
         self._weight_function = lambda x: -np.log(x)
@@ -129,22 +137,24 @@ class FACEMethod(ExplainabilityMethod):
         if kwargs.get('density_estimator'):
             self._density_estimator = check_type(kwargs.get("density_estimator"), DensityEstimator, "__init__")
         if kwargs.get('t_distance'):
-            self.t_distance = check_type(kwargs.get("t_distance"), float, "__init__")
+            self._t_distance = check_type(kwargs.get("t_distance"), float, "__init__")
         if kwargs.get('epsilon'):
-            self.epsilon = check_type(kwargs.get("epsilon"), float, "__init__")
+            self._epsilon = check_type(kwargs.get("epsilon"), float, "__init__")
         if kwargs.get('t_prediction'):
-            self.t_prediction = check_type(kwargs.get("t_prediction"), float, "__init__")
+            self._t_prediction = check_type(kwargs.get("t_prediction"), float, "__init__")
         if kwargs.get('t_density'):
             if not self._kernel_type=="kde":
                 print("Warning in __init__: t_density supplied but kernel may not be kde")
             if kwargs.get('t_density') >= 0 and kwargs.get('t_density') < 1:
-                self.t_density = check_type(kwargs.get("t_density"), float, "__init__")
+                self._t_density = check_type(kwargs.get("t_density"), float, "__init__")
             else:
                 raise ValueError(f"Invalid argument in __init__: t_density must be between 0 and 1")
         if kwargs.get('n_neighbours'):
-            self.n_neighbours = check_type(kwargs.get("n_neighbours"), int, "__init__")
+            self._n_neighbours = check_type(kwargs.get("n_neighbours"), int, "__init__")
         if kwargs.get('K'):
-            self.K = check_type(kwargs.get("K"), int, "__init__")
+            self._K = check_type(kwargs.get("K"), int, "__init__")
+        if kwargs.get('t_radius'):
+            self._t_radius = check_type(kwargs.get("t_radius"), int, "__init__")
         if kwargs.get('conditions'):
             self._conditions = check_type(kwargs.get("conditions"), Callable, "__init__")
         if kwargs.get('weight_function'):
@@ -229,6 +239,119 @@ class FACEMethod(ExplainabilityMethod):
         self._kernel = check_type(kernel, Callable, "kernel.setter")
 
     @property
+    def t_prediction(self) -> float:
+        """
+        Sets and changes the prediction threshold
+        -------
+        Callable
+        """
+        
+        return self._t_prediction
+
+    @t_prediction.setter
+    def t_prediction(self, t_prediction) -> None:
+        if t_prediction >= 0 and t_prediction <= 1:
+            self._t_prediction = check_type(t_prediction, float, "t_prediction.setter")
+        else:
+            raise ValueError("Invalid argument in t_prediction.setter: t_prediction must be between 0 and 1 (inclusive)")
+
+    @property
+    def t_distance(self):
+        """
+        Sets and changes the distance threshold
+        -------
+        Callable
+        """
+        
+        return self._t_distance
+
+    @t_distance.setter
+    def t_distance(self, t_distance) -> None:
+        if type(t_distance)==float or type(t_distance)==int:
+            self._t_distance = t_distance
+        else:
+            raise ValueError("Invalid argument in t_distance.setter: t_distance must be a number")
+
+    @property
+    def t_density(self):
+        """
+        Sets and changes the density threshold
+        -------
+        Callable
+        """
+        
+        return self._t_density
+
+    @t_density.setter
+    def t_density(self, t_density) -> None:
+        if type(t_density)==float or type(t_density)==int:
+            self._t_density = t_density
+        else:
+            raise ValueError("Invalid argument in t_density.setter: t_density must be a number")
+
+    @property
+    def t_radius(self):
+        """
+        Sets and changes the radius threshold
+        -------
+        Callable
+        """
+        
+        return self._t_radius
+
+    @t_radius.setter
+    def t_radius(self, t_radius) -> None:
+        if type(t_radius)==float or type(t_radius)==int:
+            self._t_radius = t_radius
+        else:
+            raise ValueError("Invalid argument in t_radius.setter: t_radius must be a number")
+
+    @property
+    def epsilon(self):
+        """
+        Sets and changes the epsilon threshold
+        -------
+        Callable
+        """
+        
+        return self._epsilon
+
+    @epsilon.setter
+    def epsilon(self, epsilon) -> None:
+        if type(epsilon)==float or type(epsilon)==int:
+            self._epsilon = epsilon
+        else:
+            raise ValueError("Invalid argument in epsilon.setter: epsilon must be a number")
+        
+    @property
+    def K(self) -> int:
+        """
+        Sets and changes K (GS kernel neighbours)
+        -------
+        Callable
+        """
+        
+        return self._K
+
+    @K.setter
+    def K(self, K) -> None:
+        self._K = check_type(K, int, "K.setter")
+
+    @property
+    def n_neighbours(self) -> int:
+        """
+        Sets and changes n_neighbours (KNN kernel neighbours)
+        -------
+        Callable
+        """
+        
+        return self._n_neighbours
+
+    @n_neighbours.setter
+    def n_neighbours(self, n_neighbours) -> None:
+        self._n_neighbours = check_type(n_neighbours, int, "n_neighbours.setter")
+
+    @property
     def kernel_type(self) -> Callable:
         """
         Sets and changes the kernel_type
@@ -245,10 +368,13 @@ class FACEMethod(ExplainabilityMethod):
         else:
             raise ValueError("Invalid argument in kernel.setter: kernel_type is not 'kde', 'knn', 'e' or 'gs'") 
 
-    def kernel_KDE(self, X: np.ndarray, t_density: float, t_distance: float, density_estimator: DensityEstimator, weight_function: Callable):
+    def kernel_KDE(self, X: np.ndarray, t_density: float, t_distance: float, density_estimator: DensityEstimator, weight_function: Callable, samples=None):
         density_estimator.fit(X)
         n_samples = X.shape[0]
-        g = np.zeros([n_samples, n_samples], dtype=float)
+        length = n_samples
+        if samples:
+            length = samples
+        g = np.zeros([n_samples, length], dtype=float)
         for i in range(n_samples):
             for j in range(i):
                 X_1=X[i, :]
@@ -259,7 +385,8 @@ class FACEMethod(ExplainabilityMethod):
                 if dist <= t_distance:
                     midpoint = (v0 + v1)/2
                     density = density_estimator.score_samples(midpoint.reshape(1, -1))
-                    if density <= t_density:
+                    density_X_1 = density_estimator.score_samples(X_1.reshape(1, -1))
+                    if np.exp(density_X_1) >= t_density:
                         g[i,j] = weight_function(np.exp(density)) * dist
                     else:
                         g[i,j] = 0
@@ -268,10 +395,13 @@ class FACEMethod(ExplainabilityMethod):
         g = g + g.T - np.diag(np.diag(g))
         return g
         
-    def kernel_GS(self, X: np.ndarray, t_density: float, t_distance: float, K: int, density_estimator:  DensityEstimator, weight_function: Callable):
+    def kernel_GS(self, X: np.ndarray, t_density: float, t_distance: float, K: int, radius_limit: float, density_estimator:  DensityEstimator, weight_function: Callable, samples=None):
         density_estimator.fit(X)
         n_samples = X.shape[0]
-        g = np.zeros([n_samples, n_samples], dtype=float)
+        length = n_samples
+        if samples:
+            length = samples
+        g = np.zeros([n_samples, length], dtype=float)
         for i in range(n_samples):
             for j in range(i):
                 X_1=X[i, :]
@@ -282,7 +412,8 @@ class FACEMethod(ExplainabilityMethod):
                 if dist <= t_distance:
                     midpoint = (v0 + v1)/2
                     density = density_estimator.score_samples(midpoint.reshape(1, -1), K)
-                    if density <= t_density:
+                    gs_score = density_estimator.score_samples(X_1.reshape(1, -1), K+1)
+                    if gs_score >= radius_limit and density <= t_density:
                         g[i,j] = weight_function(sigmoid(density)) * dist
                     else:
                         g[i,j] = 0
@@ -291,94 +422,87 @@ class FACEMethod(ExplainabilityMethod):
         g = g + g.T - np.diag(np.diag(g))
         return g
 
-    def kernel_KNN(self, X: np.ndarray, n_neighbours: int, weight_function: Callable):
-        volume_sphere = get_volume_of_sphere(self.n_features)
-        const = (self.n_neighbours / (self.n_samples * volume_sphere))**(1/self.n_features)
-        k = npo.zeros((self.n_samples, self.n_samples))
-        for i in range(self.n_samples):
-            v0 = self.X[i, :].reshape(-1, 1)
+    def kernel_KNN(self, X: np.ndarray, n_neighbours: int, weight_function: Callable, samples=None):
+        n_samples = X.shape[0]
+        length = n_samples
+        if samples:
+            length = samples
+        volume_sphere = get_volume_of_sphere(X.shape[1])
+        const = (n_neighbours / (n_samples * volume_sphere))**(1/X.shape[1])
+        g = np.zeros((n_samples, length))
+        for i in range(n_samples):
+            v0 = X[i, :].reshape(-1, 1)
             counter = 0
-            for j in range(self.n_samples):
-                v1 = self.X[j, :].reshape(-1, 1)
-                k[i, j] = npo.linalg.norm(v0 - v1)
-# =============================================================================
-#                 if self.edge_coditions(v0, v1):
-#                     dist = npo.linalg.norm(v0 - v1)
-#                     k[i, j] = dist
-#                 else:
-#                     counter += 1
-# =============================================================================
-            t = npo.argsort(k[i, :])[(1+counter+self.n_neighbours):]
-            mask = npo.ix_(t)
-            k[i, mask] = 0
-            
-        for i in range(self.n_samples):
-            v0 = self.X[i, :].reshape(-1, 1)
-            for j in range(self.n_samples):
-                v1 = self.X[j, :].reshape(-1, 1)
-                if k[i, j] != 0:
-                    current_value = k[i, j]
-                    k[i, j] = current_value * self.weight_function(const / (current_value**self.n_features))
-        return k
+            for j in range(length):
+                v1 = X[j, :].reshape(-1, 1)
+                g[i, j] = np.linalg.norm(v0 - v1)
+            t = np.argsort(g[i, :])[(1+counter+n_neighbours):]
+            mask = np.ix_(t)
+            g[i, mask] = 0
+        for i in range(n_samples):
+            v0 = X[i, :].reshape(-1, 1)
+            for j in range(length):
+                v1 = X[j, :].reshape(-1, 1)
+                if g[i, j] != 0:
+                    current_value = g[i, j]
+                    g[i, j] = current_value * weight_function(const / (current_value**n_samples))
+        return g
         
-    def kernel_E(self, X: np.ndarray, t_distance: float, epsilon: float):
-        return 0
+    def kernel_E(self, X: np.ndarray, t_distance: float, epsilon: float, samples=None):
+        n_samples = X.shape[0]
+        length = n_samples
+        if samples:
+            length = samples
+        g = np.zeros((n_samples, length))
+        for i in range(n_samples):
+            v0 = X[i, :].reshape(-1, 1)
+            for j in range(i):
+                v1 = X[j, :].reshape(-1, 1)
+                dist = np.linalg.norm(v0 - v1)
+                if dist <= epsilon and dist <= t_distance:
+                    g[i, j] = epsilon
+        g = g + g.T - np.diag(np.diag(g))
+        return g
 
     def check_edge(self, **kwargs):
-        if not kwargs.get("weight")==None and kwargs.get("prediction_X_1")==None and kwargs.get("prediction_X_2")==None and len(kwargs.get("X_1"))<=0 and len(kwargs.get("X_2"))<=0 and kwargs.get("t_prediction"):
-            raise ValueError(f"Missing arguments in check_edge: {'' if len(kwargs.get('X_1'))>0 else 'X_1'} {'' if len(kwargs.get('X_2'))>0 else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('prediction_X_1') else 'prediction_X_1'} {'' if kwargs.get('prediction_X_2') else 'prediction_X_2'} {'' if kwargs.get('t_prediction') else 't_prediction'} {'' if kwargs.get('conditions') else 'conditions'}")
+        if not kwargs.get("weight")==None and len(kwargs.get("X_1"))<=0 and len(kwargs.get("X_2"))<=0:
+            raise ValueError(f"Missing arguments in check_edge: {'' if len(kwargs.get('X_1'))>0 else 'X_1'} {'' if len(kwargs.get('X_2'))>0 else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('conditions') else 'conditions'}")
         X_1 = check_type(kwargs.get("X_1"), np.ndarray, "check_edge")
         X_2 = check_type(kwargs.get("X_2"), np.ndarray, "check_edge")
         weight = check_type(kwargs.get("weight"), float, "check_edge")
-        t_prediction = check_type(kwargs.get("t_prediction"), float, "check_edge")
-        prediction_X_1 = kwargs.get("prediction_X_1")
-        prediction_X_2 = kwargs.get("prediction_X_2")
         conditions = check_type(kwargs.get("conditions"), Callable, "check_edge")
-        if prediction_X_1 <= t_prediction and prediction_X_2 <= t_prediction and conditions(X_1=X_1, X_2=X_2, weight=weight):
+        if conditions(X_1=X_1, X_2=X_2, weight=weight):
             return True
         else:
             return False
 
-    def get_kernel_image(self, X: np.ndarray, kernel, t_prediction: float, t_density: float, t_distance: float, epsilon: float, n_neighbours: int, K: int, density_estimator: DensityEstimator, weight_function: Callable):
+    def get_kernel_image(self, X: np.ndarray, kernel, t_prediction: float, t_density: float, t_distance: float, epsilon: float, n_neighbours: int, K: int, radius_limit: float, density_estimator: DensityEstimator, weight_function: Callable, samples=None):
         if self.kernel_type.lower()=="kde":
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, density_estimator=density_estimator, weight_function=weight_function)
+            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, density_estimator=density_estimator, weight_function=weight_function, samples=samples)
         elif self.kernel_type.lower()=="knn":
-            temp = kernel(X=X, n_neighbours=n_neighbours, weight_function=weight_function)
+            temp = kernel(X=X, n_neighbours=n_neighbours, weight_function=weight_function, samples=samples)
         elif self.kernel_type.lower()=="e":
-            temp = kernel(X=X, t_distance=t_distance, epsilon=epsilon)
+            temp = kernel(X=X, t_distance=t_distance, epsilon=epsilon, samples=samples)
         elif self.kernel_type.lower()=="gs":
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, K=K, density_estimator=density_estimator, weight_function=weight_function)
+            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, K=K, radius_limit=radius_limit, density_estimator=density_estimator, weight_function=weight_function, samples=samples)
         else:
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, epsilon=epsilon, t_prediction=t_prediction, K=K, weight_function=weight_function)
+            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, epsilon=epsilon, t_prediction=t_prediction, K=K, weight_function=weight_function, samples=samples)
         return temp
-    
-    def get_predictions(self, X: np.ndarray, predict: Callable):
-        n_samples = X.shape[0]
-        g = []
-        for x in range(n_samples):
-            g.append(predict(X[x, :].reshape(1, -1))[0])
-        return g
 
     def build_graph(self, **kwargs):
-        if not (len(kwargs.get("X"))>0 and len(kwargs.get("kernel_image"))>0 and len(kwargs.get("predict_image"))>0 and kwargs.get("conditions") and kwargs.get("t_prediction")):
-            raise ValueError(f"Missing arguments in build_graph: {'' if kwargs.get('X') else 'X'} {'' if kwargs.get('kernel_image') else 'kernel_image'} {'' if kwargs.get('predict_image') else 'predict_image'} {'' if kwargs.get('t_prediction') else 't_prediction'} {'' if kwargs.get('conditions') else 'conditions'}")
+        if not (len(kwargs.get("X"))>0 and len(kwargs.get("kernel_image"))>0 and kwargs.get("conditions")):
+            raise ValueError(f"Missing arguments in build_graph: {'' if kwargs.get('X') else 'X'} {'' if kwargs.get('kernel_image') else 'kernel_image'} {'' if kwargs.get('conditions') else 'conditions'}")
         if len(kwargs.get("X"))>0:
             X = check_type(kwargs.get("X"), np.ndarray, "build_graph")
         if len(kwargs.get("kernel_image"))>0:
             kernel_image = check_type(kwargs.get("kernel_image"), np.ndarray, "build_graph")
-        if len(kwargs.get("predict_image"))>0:
-            predict_image = check_type(kwargs.get("predict_image"), list, "build_graph")
         if kwargs.get("conditions"):
             conditions = check_type(kwargs.get("conditions"), Callable, "build_graph")
-        if kwargs.get("t_prediction"):
-            t_prediction = check_type(kwargs.get("t_prediction"), float, "build_graph")
-        if kwargs.get("shortest_path"):
-            shortest_path = check_type(kwargs.get("shortest_path"), Callable, "build_graph")
         n_samples = X.shape[0]
         g = np.zeros([n_samples, n_samples], dtype=float)
         for i in range(n_samples):
             for j in range(i):
-                if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=float(kernel_image[i, j]), prediction_X_1=predict_image[i], prediction_X_2=predict_image[j], t_prediction=t_prediction, conditions=conditions):
+                if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=float(kernel_image[i, j]), conditions=conditions):
                     g[i, j] = kernel_image[i, j]
                 else:
                     g[i, j] = 0
@@ -396,12 +520,26 @@ class FACEMethod(ExplainabilityMethod):
             raise ValueError("Invalid arguments in explain_FACE: factuals and factuals_target or self.factuals and self.factuals_target expected")
         if not (X.shape[0]==Y.shape[0]):
             raise ValueError("Invalid argument in explain_FACE: different number of points in X and Y")
+        if len(factuals)>0 and len(factuals_target)>0:
+            facts = factuals
+            facts_target = factuals_target
+        else:
+            facts = self.factuals.dataset
+            facts_target = self.factuals_target.dataset
+        if not (facts.shape[0]==facts_target.shape[0]):
+            raise ValueError("Invalid argument in explain_FACE: different number of points in factuals and factuals_target")
+        target_classes = []
+        if kwargs.get("target_classes"):
+            target_classes = check_type(kwargs.get("target_classes"), np.ndarray, "explain_FACE")
+            if not target_classes.shape == facts_target.shape:
+                raise ValueError("Invalid argument in explain_face: target_classes must have the same shape as factuals_target")
         t_den = self.t_density
         t_dist = self.t_distance
         epsilon = self.epsilon
         t_pred = self.t_prediction
         k_n = self.n_neighbours
         K_ = self.K
+        t_radius = self.t_radius
         kern = self.kernel
         density_estimator = self.density_estimator
         weight_function = self.weight_function
@@ -413,6 +551,9 @@ class FACEMethod(ExplainabilityMethod):
         pred_f = self.predict
         if kwargs.get("predict"):
             pred_f = check_type(kwargs.get("predict"), Callable, "explain_FACE")
+        pred_proba_f = self.predict_proba
+        if kwargs.get("predict_proba"):
+            pred_proba_f = check_type(kwargs.get("predict_proba"), Callable, "explain_FACE")
         sp_f = self.shortest_path
         if kwargs.get("shortest_path"):
             sp_f = check_type(kwargs.get("shortest_path"), Callable, "explain_FACE")
@@ -432,13 +573,74 @@ class FACEMethod(ExplainabilityMethod):
             k_n = check_type(kwargs.get("n_neighbours"), int, "explain_FACE")
         if kwargs.get("K"):
             K_ = check_type(kwargs.get("K"), int, "explain_FACE")
-        
-        predict_image = self.get_predictions(X, pred_f)
-        kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, density_estimator, weight_function)
-
-        graph = self.build_graph(X=X, kernel_image=kernel_image, predict_image=predict_image, shortest_path=sp_f, t_prediction=t_pred, conditions=cs_f)
+        if kwargs.get("t_radius"):
+            t_radius = check_type(kwargs.get("t_radius"), float, "explain_FACE")
+            
+        predictions = pred_proba_f(X)
+        kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, t_radius, density_estimator, weight_function)
+        graph = self.build_graph(X=X, kernel_image=kernel_image, conditions=cs_f)
         self.graph = graph
-        return graph
+            
+        #if not ((X == fac).all(1).any() for fac in factuals):
+        #        print("Warning in explain_FACE: factuals are not a subset of X")
+        #if not ((Y == fac).all(1).any() for fac in factuals_target):
+        #    raise ValueError("Invalid argument in explain_FACE: factuals_target are not a subset of Y")
+        classes = np.unique(Y)
+        count = 0
+        # 2D - List of List[int]
+        candidate_targets_all = []
+        # 2D - List of List[int]; final distances for each candidate_target
+        dists_all = []
+        # 3D - List of List of List[int]; List of paths for each candidate_target
+        paths_all = []
+        dists_all_best = []
+        paths_all_best = []
+        for fac in factuals:
+            if not ((X == fac).all(1).any() for fac in factuals):
+                ind = -(count+1)
+            else:
+                ind = np.where((X == fac).all(axis=1))[0][0]
+            #if (factuals_target[count]==Y[ind]):
+            #    raise ValueError(f"Invalid class for factuals_target[{count}]: same class as Y[{ind}]")
+            if len(target_classes)>0:
+                target_class = target_classes[count]
+            else:
+                target_class = factuals_target[count]
+            predictions_target_class = predictions[:, target_class]
+            start_node_edges = []
+            if not ((X == fac).all(1).any() for fac in factuals):
+                print("Warning in explain_FACE: factuals are not a subset of X")
+                start_node_edges = self.get_kernel_image(fac, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, density_estimator, weight_function, X.shape[0])
+            t0 = np.where(predictions_target_class >= t_pred)[0]
+            t1 = np.where(Y == target_class)[0]
+            if len(target_classes)>0:
+                t1 = [i for i in Y if i not in t1]
+            candidate_targets = list(set(t0).intersection(set(t1)))
+
+            dists = []
+            paths = []
+            for candidate in candidate_targets:
+                dist, path = dijkstra(graph=graph, start=ind, end=candidate, start_edges=start_node_edges)
+                dists.append(dist)
+                paths.append(path)
+            zipped_lists = zip(dists, paths)
+            sorted_zipped_lists = sorted(zipped_lists)
+            paths_ = [element for _, element in sorted_zipped_lists]
+            dists_ = sorted(dists)
+
+            candidate_targets_all.append(candidate_targets)
+            dists_all_best.append(dists_)
+            paths_all_best.append(paths_)
+            dists_all_best.append(dists_[0])
+            paths_all_best.append(paths_[0])
+            
+            count += 1
+            
+        self.graph = graph
+        self.distances = dists_all
+        self.paths = paths_all
+        self.candidate_targets = candidate_targets_all
+        return (graph, dists_all_best, paths_all_best, candidate_targets_all)
 
     def __str__(self):
         return f"Factuals: {self.factuals}, Factual Targets: {self.factuals_target}, Kernel Type: {self.kernel_type}, K-Neighbours: {self.n_neighbours}, Epsilon: {self.epsilon}, Distance Threshold: {self.t_distance}, Density Threshold: {self.t_density}, Prediction Threshold: {self.t_prediction}"

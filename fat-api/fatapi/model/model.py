@@ -26,7 +26,7 @@ class Model(object):
         Method for predicting the class label of X
         -- Only required if blackbox not supplied
     predict_proba()? : (X: np.ndarray) -> np.ndarray
-        Method for predicting the probability of the prediction of X
+        Method for getting the probability of the prediction of X
         -- Only required if blackbox not supplied
     fit()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
         Method for fitting model to X, Y
