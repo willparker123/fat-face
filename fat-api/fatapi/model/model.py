@@ -59,8 +59,8 @@ class Model(object):
         -- If no scaler, returns X
     """
     def __init__(self, data: Data, target: Data=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
-        if not kwargs.get("blackbox") and not (kwargs.get('fit') and kwargs.get('predict') and kwargs.get('predict_proba')):
-            raise ValueError(f"Missing arguments in __init__: [{'' if kwargs.get('blackbox') else 'blackbox'}, {'' if kwargs.get('fit') else 'fit'}, {'' if kwargs.get('predict') else 'predict'}, {'' if kwargs.get('predict_proba') else 'predict_proba'}, {'' if kwargs.get('score') else 'score'}]")
+        if not ('blackbox' in kwargs) or ('fit' in kwargs and 'predict' in kwargs and 'predict_proba' in kwargs):
+            raise ValueError(f"Missing arguments in __init__: [{'' if 'blackbox' in kwargs else 'blackbox'}, {'' if 'fit' in kwargs else 'fit'}, {'' if 'predict' in kwargs else 'predict'}, {'' if 'predict_proba' in kwargs else 'predict_proba'}, {'' if 'score' in kwargs else 'score'}]")
         if kwargs.get("blackbox"):
             self.blackbox = check_type(kwargs.get("blackbox"), BlackBox, "__init__")
             self._fit = self.blackbox.fit
@@ -69,13 +69,13 @@ class Model(object):
             if self.blackbox.score:
                 self._score = self.blackbox.score
         else:
-            if kwargs.get('fit'):
+            if 'fit' in kwargs:
                 self._fit = check_type(kwargs.get("fit"), Callable, "__init__")
-            if kwargs.get('predict'):
+            if 'predict' in kwargs:
                 self._predict = check_type(kwargs.get("predict"), Callable, "__init__")
-            if kwargs.get('predict_proba'):
+            if 'predict_proba' in kwargs:
                 self._predict_proba = check_type(kwargs.get("predict_proba"), Callable, "__init__")
-            if kwargs.get('score'):
+            if 'score' in kwargs:
                 self._score = check_type(kwargs.get("score"), Callable, "__init__")
         data = check_type(data, Data, "__init__")
         if data.encoded or (kwargs.get('encoder') and kwargs.get('scaler')):
@@ -83,14 +83,14 @@ class Model(object):
             self.data = d
         else:
             raise ValueError("Invalid argument in __init__: data must be encoded or (scaler, encoder) must be supplied")
-        if kwargs.get('encoder'):
+        if 'encoder' in kwargs:
             self._encoder = check_type(kwargs.get("encoder"), Transformer, "__init__")
-        if kwargs.get('scaler'):
+        if 'scaler' in kwargs:
             self._scaler = check_type(kwargs.get("scaler"), Transformer, "__init__")
         if target:
             target = check_type(target, Data, "__init__")
             if (target.n_data == data.n_data):
-                if target.encoded or (kwargs.get('encoder') and kwargs.get('scaler')):
+                if target.encoded or ('encoder' in kwargs and 'scaler' in kwargs):
                     t : Data = target
                     self.target = t
                 else:

@@ -44,25 +44,25 @@ class ExplainabilityMethod(object):
     def __init__(self, factuals=None, factuals_target=None, **kwargs) -> None:
         if not ((kwargs.get('predict') and kwargs.get('predict_proba')) or kwargs.get('model')):
             raise ValueError(f"Invalid arguments in __init__: please provide model or predict function but not both")
-        if kwargs.get('model'):
+        if 'model' in kwargs:
             m = check_type(kwargs.get("model"), Model, "__init__")
             self._model: Model = m
             self._predict = self._model.predict
             self._predict_proba = self._model.predict_proba
-        if kwargs.get('predict'):
+        if 'predict' in kwargs:
             self._predict = check_type(kwargs.get("predict"), Callable, "__init__")
-        if kwargs.get('predict_proba'):
+        if 'predict_proba' in kwargs:
             self._predict_proba = check_type(kwargs.get("predict_proba"), Callable, "__init__")
         self._explain = lambda **kwargs: kwargs
-        if kwargs.get('explain'):
+        if 'explain' in kwargs:
             self._explain = check_type(kwargs.get("explain"), Callable, "__init__")
         if not factuals and factuals_target:
             raise ValueError("Invalid argument in __init__: factual targets supplied with no factuals - provide factuals argument if targets are the features")
         self._data=None
         self._target=None
-        if kwargs.get('data'):
+        if 'data' in kwargs:
             self._data = check_type(kwargs.get("data"), Data, "__init__")
-        if kwargs.get('target'):
+        if 'target' in kwargs:
             self._target = check_type(kwargs.get("target"), Data, "__init__")
         if factuals:
             self._factuals = factuals

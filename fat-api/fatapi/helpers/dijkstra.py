@@ -12,7 +12,7 @@ def dijkstra(graph: np.ndarray, start: int, end: int, start_edges: np.ndarray):
         if start < 0:
             destinations = [start_edges.index(x) for x in start_edges if x>0]
         else:
-            destinations = [graph[current_node, :].index(x) for x in graph[current_node, :] if x>0]
+            destinations = [list(graph[current_node, :]).index(x) for x in list(graph[current_node, :]) if x>0]
         weight_to_current_node = shortest_paths[current_node][1]
 
         for next_node in destinations:
@@ -26,7 +26,8 @@ def dijkstra(graph: np.ndarray, start: int, end: int, start_edges: np.ndarray):
         
         next_destinations = {node: shortest_paths[node] for node in shortest_paths if node not in visited}
         if not next_destinations:
-            return -1 #"Route Not Possible"
+            raise ValueError(f"Error in dijkstra: cannot find a route from start node [{start}] to end node [{end}]")
+            return -1, -1 #"Route Not Possible"
         # next node is the destination with the lowest weight
         current_node = min(next_destinations, key=lambda k: next_destinations[k][1])
     
@@ -37,10 +38,10 @@ def dijkstra(graph: np.ndarray, start: int, end: int, start_edges: np.ndarray):
         path.append(current_node)
         next_node = shortest_paths[current_node][0]
         if next_node:
-            distance += graph.weights[(current_node, next_node)]
+            distance += graph[current_node, next_node]
         current_node = next_node
         
     # Reverse path
     path = path[::-1]
 
-    return distance, path
+    return (distance, path)

@@ -98,14 +98,14 @@ class FACEMethod(ExplainabilityMethod):
     """
     def __init__(self, *args, **kwargs) -> None:
         super(FACEMethod, self).__init__(*args, **kwargs)
-        if not (kwargs.get("factuals") and kwargs.get("factuals_target")):
+        if not ('factuals' in kwargs and 'factuals_target' in kwargs):
             print("Warning in __init__: factuals and factuals_target not supplied - need to provide X and Y to explain()")
-        if not (kwargs.get('kernel') or kwargs.get('kernel_type')):
+        if not ('kernel' in kwargs or 'kernel_type' in kwargs):
             raise ValueError(f"Invalid arguments in __init__: please provide kernel or kernel_type")
-        if kwargs.get('data') and not kwargs.get('target'):
+        if 'data' in kwargs and not 'target' in kwargs:
             raise ValueError(f"Invalid arguments in __init__: please provide data and target or provide X and Y to explain()")
         ktype = ""
-        if kwargs.get('kernel_type'):
+        if 'kernel_type' in kwargs:
             ktype = check_type(kwargs.get("kernel_type"), str, "__init__")
         if not (ktype.lower()=="kde".lower() or ktype.lower()=="knn".lower() or ktype.lower()=="e".lower() or ktype.lower()=="gs".lower()):
             raise ValueError(f"Invalid arguments in __init__: kernel_type must be 'kde', 'knn', 'e' or 'gs'")
@@ -113,11 +113,11 @@ class FACEMethod(ExplainabilityMethod):
             self._kernel_type = ktype
             ks = {"kde" : self.kernel_KDE, "knn" : self.kernel_KNN, "e" : self.kernel_E, "gs" : self.kernel_GS}
             self._kernel = ks[self._kernel_type.lower()]
-        if kwargs.get('kernel'):
+        if 'kernel' in kwargs:
             self._kernel = check_type(kwargs.get("kernel"), Callable, "__init__")
-        if kwargs.get('data'):
+        if 'data' in kwargs:
             self.data = check_type(kwargs.get("data"), Data, "__init__")
-        if kwargs.get('target'):
+        if 'target' in kwargs:
             self.target = check_type(kwargs.get("target"), Data, "__init__")
         self._t_distance = 10000
         self._epsilon = 0.75
@@ -130,40 +130,40 @@ class FACEMethod(ExplainabilityMethod):
         self._conditions = lambda **kwargs: True
         self._weight_function = lambda x: -np.log(x)
         self._density_estimator = DensityEstimator()
-        if kwargs.get('shortest_path'):
+        if 'shortest_path' in kwargs:
             self._shortest_path = check_type(kwargs.get("shortest_path"), Callable, "__init__")
-        if self._kernel_type=="kde" and not kwargs.get('density_estimator'):
+        if self._kernel_type=="kde" and not 'density_estimator' in kwargs:
             raise ValueError("Missing argument in __init__: density_estimator required when kernel_type is 'kde'; recommended to use methods fit, score_samples from sklearn.neighbors.KernelDensity")
-        if kwargs.get('density_estimator'):
+        if 'density_estimator' in kwargs:
             self._density_estimator = check_type(kwargs.get("density_estimator"), DensityEstimator, "__init__")
-        if kwargs.get('t_distance'):
+        if 't_distance' in kwargs:
             self._t_distance = check_type(kwargs.get("t_distance"), float, "__init__")
-        if kwargs.get('epsilon'):
+        if 'epsilon' in kwargs:
             self._epsilon = check_type(kwargs.get("epsilon"), float, "__init__")
-        if kwargs.get('t_prediction'):
+        if 't_prediction' in kwargs:
             self._t_prediction = check_type(kwargs.get("t_prediction"), float, "__init__")
-        if kwargs.get('t_density'):
+        if 't_density' in kwargs:
             if not self._kernel_type=="kde":
                 print("Warning in __init__: t_density supplied but kernel may not be kde")
             if kwargs.get('t_density') >= 0 and kwargs.get('t_density') < 1:
                 self._t_density = check_type(kwargs.get("t_density"), float, "__init__")
             else:
                 raise ValueError(f"Invalid argument in __init__: t_density must be between 0 and 1")
-        if kwargs.get('n_neighbours'):
+        if 'n_neighbours' in kwargs:
             self._n_neighbours = check_type(kwargs.get("n_neighbours"), int, "__init__")
-        if kwargs.get('K'):
+        if 'K' in kwargs:
             self._K = check_type(kwargs.get("K"), int, "__init__")
-        if kwargs.get('t_radius'):
+        if 't_radius' in kwargs:
             self._t_radius = check_type(kwargs.get("t_radius"), int, "__init__")
-        if kwargs.get('conditions'):
+        if 'conditions' in kwargs:
             self._conditions = check_type(kwargs.get("conditions"), Callable, "__init__")
-        if kwargs.get('weight_function'):
+        if 'weight_function' in kwargs:
             self._weight_function = check_type(kwargs.get("weight_function"), Callable, "__init__")
         if self._kernel_type=="knn":
-            if not kwargs.get('n_neighbours'):
+            if not 'n_neighbours' in kwargs:
                 print("Warning in __init__: n_neighbours not supplied - default (20) being used")
         if self.K=="gs":
-            if not kwargs.get('K'):
+            if not 'K' in kwargs:
                 print("Warning in __init__: K not supplied - default (10) being used")
         self._explain = self.explain_FACE
         self.graph = None
@@ -413,7 +413,7 @@ class FACEMethod(ExplainabilityMethod):
                     midpoint = (v0 + v1)/2
                     density = density_estimator.score_samples(midpoint.reshape(1, -1), K)
                     gs_score = density_estimator.score_samples(X_1.reshape(1, -1), K+1)
-                    if gs_score >= radius_limit and density <= t_density:
+                    if gs_score >= radius_limit and density >= t_density:
                         g[i,j] = weight_function(sigmoid(density)) * dist
                     else:
                         g[i,j] = 0
@@ -465,8 +465,8 @@ class FACEMethod(ExplainabilityMethod):
         return g
 
     def check_edge(self, **kwargs):
-        if not kwargs.get("weight")==None and len(kwargs.get("X_1"))<=0 and len(kwargs.get("X_2"))<=0:
-            raise ValueError(f"Missing arguments in check_edge: {'' if len(kwargs.get('X_1'))>0 else 'X_1'} {'' if len(kwargs.get('X_2'))>0 else 'X_2'} {'' if kwargs.get('weight') else 'weight'} {'' if kwargs.get('conditions') else 'conditions'}")
+        if not ('weight' in kwargs and 'X_1' in kwargs and 'X_2' in kwargs and len(kwargs.get("X_1"))>0 and len(kwargs.get("X_2"))>0):
+            raise ValueError(f"Missing arguments in check_edge: {'' if 'X_1' in kwargs else 'X_1'} {'' if 'X_2' in kwargs else 'X_2'} {'' if 'weight' in kwargs else 'weight'} {'' if 'conditions' in kwargs else 'conditions'}")
         X_1 = check_type(kwargs.get("X_1"), np.ndarray, "check_edge")
         X_2 = check_type(kwargs.get("X_2"), np.ndarray, "check_edge")
         weight = check_type(kwargs.get("weight"), float, "check_edge")
@@ -490,13 +490,19 @@ class FACEMethod(ExplainabilityMethod):
         return temp
 
     def build_graph(self, **kwargs):
-        if not (len(kwargs.get("X"))>0 and len(kwargs.get("kernel_image"))>0 and kwargs.get("conditions")):
-            raise ValueError(f"Missing arguments in build_graph: {'' if kwargs.get('X') else 'X'} {'' if kwargs.get('kernel_image') else 'kernel_image'} {'' if kwargs.get('conditions') else 'conditions'}")
-        if len(kwargs.get("X"))>0:
-            X = check_type(kwargs.get("X"), np.ndarray, "build_graph")
-        if len(kwargs.get("kernel_image"))>0:
-            kernel_image = check_type(kwargs.get("kernel_image"), np.ndarray, "build_graph")
-        if kwargs.get("conditions"):
+        if not ('conditions' in kwargs and 'X' in kwargs and 'kernel_image' in kwargs):
+            raise ValueError(f"Missing arguments in build_graph: {'' if 'X' in kwargs else 'X'} {'' if 'kernel_image' in kwargs else 'kernel_image'} {'' if 'conditions' in kwargs else 'conditions'}")
+        if 'X' in kwargs:
+            if len(kwargs.get("X"))>0:
+                X = check_type(kwargs.get("X"), np.ndarray, "build_graph")
+            else:
+                raise ValueError("Invalid argument in build_graph: X is empty")
+        if 'kernel_image' in kwargs:
+            if len(kwargs.get("kernel_image"))>0:
+                kernel_image = check_type(kwargs.get("kernel_image"), np.ndarray, "build_graph")
+            else:
+                raise ValueError("Invalid argument in build_graph: kernel_image is empty")
+        if 'conditions' in kwargs:
             conditions = check_type(kwargs.get("conditions"), Callable, "build_graph")
         n_samples = X.shape[0]
         g = np.zeros([n_samples, n_samples], dtype=float)
@@ -507,10 +513,11 @@ class FACEMethod(ExplainabilityMethod):
                 else:
                     g[i, j] = 0
         g = g + g.T - np.diag(np.diag(g))
+        self.graph = g
         return g
 
     def explain_FACE(self, X: np.ndarray, Y: np.ndarray, factuals: np.ndarray, factuals_target: np.ndarray, **kwargs) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        if not (len(X)>0 and len(Y)>0):
+        if not ((len(X)>0 and len(Y)>0) or (self.data and self.target)):
             raise ValueError("Invalid arguments in explain_FACE: (self.data and self.target) or (X and Y) needed")
         if len(X)>0 and not len(Y)>0:
             raise ValueError("Invalid arguments in explain_FACE: target needed for data; X supplied but not Y")
@@ -543,44 +550,43 @@ class FACEMethod(ExplainabilityMethod):
         kern = self.kernel
         density_estimator = self.density_estimator
         weight_function = self.weight_function
-        if kwargs.get("kernel"):
+        if 'kernel' in kwargs:
             kern = check_type(kwargs.get("kernel"), Callable, "explain_FACE")
         cs_f = self.conditions
-        if kwargs.get("conditions"):
+        if 'conditions' in kwargs:
             cs_f = check_type(kwargs.get("conditions"), Callable, "explain_FACE")
         pred_f = self.predict
-        if kwargs.get("predict"):
+        if 'predict' in kwargs:
             pred_f = check_type(kwargs.get("predict"), Callable, "explain_FACE")
         pred_proba_f = self.predict_proba
-        if kwargs.get("predict_proba"):
+        if 'predict_proba' in kwargs:
             pred_proba_f = check_type(kwargs.get("predict_proba"), Callable, "explain_FACE")
         sp_f = self.shortest_path
-        if kwargs.get("shortest_path"):
+        if 'shortest_path' in kwargs:
             sp_f = check_type(kwargs.get("shortest_path"), Callable, "explain_FACE")
-        if kwargs.get("density_estimator"):
+        if 'density_estimator' in kwargs:
             density_estimator = check_type(kwargs.get("density_estimator"), DensityEstimator, "explain_FACE")
-        if kwargs.get("weight_function"):
+        if 'weight_function' in kwargs:
             weight_function = check_type(kwargs.get("weight_function"), Callable, "explain_FACE")
-        if kwargs.get("t_density"):
+        if 't_density' in kwargs:
             t_den = check_type(kwargs.get("t_density"), float, "explain_FACE")
-        if kwargs.get("t_distance"):
+        if 't_distance' in kwargs:
             t_dist = check_type(kwargs.get("t_distance"), float, "explain_FACE")
-        if kwargs.get("epsilon"):
+        if 'epsilon' in kwargs:
             t_dist = check_type(kwargs.get("epsilon"), float, "explain_FACE")
-        if kwargs.get("t_prediction"):
+        if 't_prediction' in kwargs:
             t_pred = check_type(kwargs.get("t_prediction"), float, "explain_FACE")
-        if kwargs.get("n_neighbours"):
+        if 'n_neighbours' in kwargs:
             k_n = check_type(kwargs.get("n_neighbours"), int, "explain_FACE")
-        if kwargs.get("K"):
+        if 'K' in kwargs:
             K_ = check_type(kwargs.get("K"), int, "explain_FACE")
-        if kwargs.get("t_radius"):
+        if 't_radius' in kwargs:
             t_radius = check_type(kwargs.get("t_radius"), float, "explain_FACE")
             
         predictions = pred_proba_f(X)
         kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, t_radius, density_estimator, weight_function)
         graph = self.build_graph(X=X, kernel_image=kernel_image, conditions=cs_f)
         self.graph = graph
-            
         #if not ((X == fac).all(1).any() for fac in factuals):
         #        print("Warning in explain_FACE: factuals are not a subset of X")
         #if not ((Y == fac).all(1).any() for fac in factuals_target):
@@ -635,12 +641,26 @@ class FACEMethod(ExplainabilityMethod):
             paths_all_best.append(paths_[0])
             
             count += 1
-            
+
         self.graph = graph
         self.distances = dists_all
+        self.distances_best = dists_all_best
         self.paths = paths_all
+        self.paths_best = paths_all_best
         self.candidate_targets = candidate_targets_all
-        return (graph, dists_all_best, paths_all_best, candidate_targets_all)
+        return (graph, dists_all_best, paths_all_best)
+
+    def get_graph(self):
+        return self.graph
+
+    def get_explain_candidates(self):
+        return self.candidate_targets
+
+    def get_explain_distances(self):
+        return self.distances_best
+        
+    def get_explain_paths(self):
+        return self.paths_best
 
     def __str__(self):
         return f"Factuals: {self.factuals}, Factual Targets: {self.factuals_target}, Kernel Type: {self.kernel_type}, K-Neighbours: {self.n_neighbours}, Epsilon: {self.epsilon}, Distance Threshold: {self.t_distance}, Density Threshold: {self.t_density}, Prediction Threshold: {self.t_prediction}"
