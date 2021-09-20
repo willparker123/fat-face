@@ -95,6 +95,18 @@ class FACEMethod(ExplainabilityMethod):
         i, j are indicies of datapoints in X (rows)
     get_graph() : () -> numpy.array
         Returns the graph which build_graph() produces
+    get_explain_distances() : () -> List[float]
+        Returns the distances to the counterfactuals from the starting datapoint
+    get_explain_candidates() : () -> numpy.array
+        Returns the valid candidate indexes of datapoints that satisfy edge conditions from each factual datapoint
+    get_explain_paths() : () -> numpy.array
+        Returns the best paths from the factuals to the counterfactuals
+    get_counterfactuals(as_indexes?: bool) : () -> numpy.array
+        Returns the counterfactuals for the supplied factuals (classifications / Y values)
+        -- Default is as data (not as_indexes)
+    get_counterfactuals_as_data() : () -> numpy.array
+        Returns the counterfactual datapoints as data in the same form X and Y were supplied as tuple (data, target)
+        -- target is the same as get_counterfactuals()
     """
     def __init__(self, *args, **kwargs) -> None:
         super(FACEMethod, self).__init__(*args, **kwargs)
@@ -145,7 +157,7 @@ class FACEMethod(ExplainabilityMethod):
         if 't_density' in kwargs:
             if not self._kernel_type=="kde":
                 print("Warning in __init__: t_density supplied but kernel may not be kde")
-            if kwargs.get('t_density') >= 0 and kwargs.get('t_density') < 1:
+            if kwargs.get('t_density') >= 0 and kwargs.get('t_density') <= 1:
                 self._t_density = check_type(kwargs.get("t_density"), float, "__init__")
             else:
                 raise ValueError(f"Invalid argument in __init__: t_density must be between 0 and 1")
@@ -601,6 +613,9 @@ class FACEMethod(ExplainabilityMethod):
         paths_all = []
         dists_all_best = []
         paths_all_best = []
+        counterfactual_indexes = []
+        counterfactuals = []
+        counterfactual_targets = []
         for fac in factuals:
             if not ((X == fac).all(1).any() for fac in factuals):
                 ind = -(count+1)
@@ -610,19 +625,20 @@ class FACEMethod(ExplainabilityMethod):
             #    raise ValueError(f"Invalid class for factuals_target[{count}]: same class as Y[{ind}]")
             if len(target_classes)>0:
                 target_class = target_classes[count]
+                predictions_target_class = predictions[:, target_class]
             else:
                 target_class = factuals_target[count]
-            predictions_target_class = predictions[:, target_class]
+                predictions_target_class = predictions[:, np.delete(classes, target_class)]
             start_node_edges = []
             if not ((X == fac).all(1).any() for fac in factuals):
                 print("Warning in explain_FACE: factuals are not a subset of X")
                 start_node_edges = self.get_kernel_image(fac, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, density_estimator, weight_function, X.shape[0])
             t0 = np.where(predictions_target_class >= t_pred)[0]
-            t1 = np.where(Y == target_class)[0]
             if len(target_classes)>0:
-                t1 = [i for i in Y if i not in t1]
+                t1 = np.where(Y == target_class)[0]
+            else:
+                t1 = [x for x in range(Y.shape[0]) if x not in np.where(Y == target_class)[0]]
             candidate_targets = list(set(t0).intersection(set(t1)))
-
             dists = []
             paths = []
             for candidate in candidate_targets:
@@ -635,11 +651,13 @@ class FACEMethod(ExplainabilityMethod):
             dists_ = sorted(dists)
 
             candidate_targets_all.append(candidate_targets)
-            dists_all_best.append(dists_)
-            paths_all_best.append(paths_)
+            dists_all.append(dists_)
+            paths_all.append(paths_)
             dists_all_best.append(dists_[0])
             paths_all_best.append(paths_[0])
-            
+            counterfactual_indexes.append(paths_[0][1])
+            counterfactuals.append(X[paths_[0][1]])
+            counterfactual_targets.append(Y[paths_[0][1]])
             count += 1
 
         self.graph = graph
@@ -647,20 +665,32 @@ class FACEMethod(ExplainabilityMethod):
         self.distances_best = dists_all_best
         self.paths = paths_all
         self.paths_best = paths_all_best
+        self.counterfactual_indexes = counterfactual_indexes
+        self.counterfactuals = counterfactuals
+        self.counterfactual_targets = counterfactual_targets
         self.candidate_targets = candidate_targets_all
         return (graph, dists_all_best, paths_all_best)
 
     def get_graph(self):
         return self.graph
-
+        
     def get_explain_candidates(self):
         return self.candidate_targets
-
+        
     def get_explain_distances(self):
         return self.distances_best
         
     def get_explain_paths(self):
         return self.paths_best
+        
+    def get_counterfactuals(self, as_indexes=False):
+        if as_indexes:
+            return self.counterfactual_indexes
+        else:
+            return self.counterfactual_targets
+
+    def get_counterfactuals_as_data(self):
+        return self.counterfactuals, self.counterfactual_targets
 
     def __str__(self):
         return f"Factuals: {self.factuals}, Factual Targets: {self.factuals_target}, Kernel Type: {self.kernel_type}, K-Neighbours: {self.n_neighbours}, Epsilon: {self.epsilon}, Distance Threshold: {self.t_distance}, Density Threshold: {self.t_density}, Prediction Threshold: {self.t_prediction}"
