@@ -12,7 +12,7 @@ class FACEMethod(ExplainabilityMethod):
     Abstract class for the FACE algorithm as an AI explainability method.
     
     Contains methods for generating counterfactuals and the data / model to apply FACE to, 
-    as well as visualisation and extracting internal representations
+    as well as extracting internal representations
     
     Parameters
     ----------
@@ -34,12 +34,10 @@ class FACEMethod(ExplainabilityMethod):
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
-    explain()? : (self, X: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
-        Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
     kernel_type? : String
         String specifying which kernel to use to build weights from data - default is "kde" but can be "kde"/"knn"/"e"/"gs"
         -- Only required if kernel not supplied
-    kernel()? : (self: FACEMethod, X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Float
+    kernel()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Float
         Kernel function to build weights using two datapoints
         -- Only required if kernel_type is not supplied or to override kernel function
     n_neighbours? : Int
@@ -82,9 +80,9 @@ class FACEMethod(ExplainabilityMethod):
 
     Methods
     -------
-    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> (graph: numpy.array, distances: numpy.array, paths: numpy.array, candidate_targets: List[int])
+    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> (graph: numpy.array, distances: numpy.array, paths: numpy.array)
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
-        Returns a graph (N x N where N=n_samples), distances (len(paths) x )
+        Returns counterfactual target classes or counterfactual datapoints if no counterfactual_targets
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
                                             scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> numpy.array
@@ -669,7 +667,10 @@ class FACEMethod(ExplainabilityMethod):
         self.counterfactuals = counterfactuals
         self.counterfactual_targets = counterfactual_targets
         self.candidate_targets = candidate_targets_all
-        return (graph, dists_all_best, paths_all_best)
+        if counterfactual_targets:
+            return (counterfactual_targets)
+        else:
+            return (counterfactuals)
 
     def get_graph(self):
         return self.graph
