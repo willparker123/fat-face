@@ -47,12 +47,12 @@ class DensityEstimator(object):
             self._score_samples = self.base_score_samples
 
         if kwargs.get("distance_function"): 
-            self._distance_function = check_type(kwargs.get("distance_function"), Callable, "__init__")
+            self._distance_function = check_type(kwargs.get("distance_function"), "__init__", Callable)
         else:
             self._distance_function = lambda x, y: np.linalg.norm(x.reshape(-1, 1) - y.reshape(-1, 1))
             
         if kwargs.get("transformation_function"): 
-            self._transformation_function = check_type(kwargs.get("transformation_function"), Callable, "__init__")
+            self._transformation_function = check_type(kwargs.get("transformation_function"), "__init__", Callable)
         else:
             self._transformation_function = lambda x: -np.log(x)
         
@@ -88,7 +88,7 @@ class DensityEstimator(object):
 
     @distance_function.setter
     def distance_function(self, distance_function) -> None:
-        self._distance_function = check_type(distance_function, Callable, "distance_function.setter")
+        self._distance_function = check_type(distance_function, "distance_function.setter", Callable)
         
     @property
     def transformation_function(self) -> Callable:
@@ -102,7 +102,7 @@ class DensityEstimator(object):
 
     @transformation_function.setter
     def transformation_function(self, transformation_function) -> None:
-        self._transformation_function = check_type(transformation_function, Callable, "transformation_function.setter")
+        self._transformation_function = check_type(transformation_function, "transformation_function.setter", Callable)
 
     @property
     def fit(self) -> Callable:
@@ -115,7 +115,7 @@ class DensityEstimator(object):
 
     @fit.setter
     def fit(self, fit) -> None:
-        self._fit = check_type(fit, Callable, "fit.setter")
+        self._fit = check_type(fit, "fit.setter", Callable)
 
     @property
     def score(self) -> Callable:
@@ -128,7 +128,7 @@ class DensityEstimator(object):
 
     @score.setter
     def score(self, score) -> None:
-        self._score = check_type(score, Callable, "score.setter")
+        self._score = check_type(score, "score.setter", Callable)
 
     @property
     def score_samples(self) -> Callable:
@@ -141,4 +141,4 @@ class DensityEstimator(object):
 
     @score_samples.setter
     def score_samples(self, score_samples) -> None:
-        self._score_samples = check_type(score_samples, Callable, "score_samples.setter")
+        self._score_samples = check_type(score_samples, "score_samples.setter", Callable)

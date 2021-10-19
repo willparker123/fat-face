@@ -14,14 +14,19 @@ def sigmoid(x):
 def get_volume_of_sphere(d):
     return math.pi**(d/2)/math.gamma(d/2 + 1)
 
-def check_type(arg, type_, func):
-    if type_==Callable:
-        if callable(arg):
-            return arg
+def check_type(arg, func, *types):
+    err = f"Invalid argument in {func}: {arg} is not of type "
+    vs = []
+    for i in range(len(types)):
+        if i == 0:
+            err += f"{types[i]}"
         else:
-            raise ValueError(f"Invalid argument in {func}: {arg} is not a function")
+            err += f" or {types[i]}"
+        if types[i]==Callable:
+            vs.append(callable(arg))
+        else:
+            vs.append(type(arg)==types[i])
+    if sum(vs) >= 1:
+        return arg
     else:
-        if type(arg)==type_:
-            return arg
-        else:
-            raise ValueError(f"Invalid argument in {func}: {arg} is not of type {type_}")
+        raise ValueError(err)

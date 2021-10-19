@@ -23,7 +23,7 @@ class ExplainabilityMethod(object):
     predict()? : (X: np.array) -> np.array()
         Method for predicting the class label of X
         -- Only required if model not supplied
-    predict_proba()? : (X: np.array) -> Float
+    predict_proba()? : (X: np.array) -> float
         Method for getting the probability of X being the predicted class label
         -- Only required if model not supplied
     model? : fatapi.model.Model
@@ -45,25 +45,25 @@ class ExplainabilityMethod(object):
         if not ((kwargs.get('predict') and kwargs.get('predict_proba')) or kwargs.get('model')):
             raise ValueError(f"Invalid arguments in __init__: please provide model or predict function but not both")
         if 'model' in kwargs:
-            m = check_type(kwargs.get("model"), Model, "__init__")
+            m = check_type(kwargs.get("model"), "__init__", Model)
             self._model: Model = m
             self._predict = self._model.predict
             self._predict_proba = self._model.predict_proba
         if 'predict' in kwargs:
-            self._predict = check_type(kwargs.get("predict"), Callable, "__init__")
+            self._predict = check_type(kwargs.get("predict"), "__init__", Callable[[np.array], np.array])
         if 'predict_proba' in kwargs:
-            self._predict_proba = check_type(kwargs.get("predict_proba"), Callable, "__init__")
+            self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.array], float])
         self._explain = lambda **kwargs: kwargs
         if 'explain' in kwargs:
-            self._explain = check_type(kwargs.get("explain"), Callable, "__init__")
+            self._explain = check_type(kwargs.get("explain"), "__init__", Callable)
         if not factuals and factuals_target:
-            raise ValueError("Invalid argument in __init__: factual targets supplied with no factuals - provide factuals argument if targets are the features")
+            raise ValueError("Invalid argument in __init__: factual targets supplied with no factuals")
         self._data=None
         self._target=None
         if 'data' in kwargs:
-            self._data = check_type(kwargs.get("data"), Data, "__init__")
+            self._data = check_type(kwargs.get("data"), "__init__", Data)
         if 'target' in kwargs:
-            self._target = check_type(kwargs.get("target"), Data, "__init__")
+            self._target = check_type(kwargs.get("target"), "__init__", Data)
         if factuals:
             self._factuals = factuals
         else:
@@ -88,7 +88,7 @@ class ExplainabilityMethod(object):
 
     @data.setter
     def data(self, data) -> None:
-        self._data = check_type(data, Data, "data.setter")
+        self._data = check_type(data, "data.setter", Data)
 
     @property
     def target(self) -> Callable:
@@ -102,7 +102,7 @@ class ExplainabilityMethod(object):
 
     @target.setter
     def target(self, target) -> None:
-        self._target = check_type(target, Data, "target.setter")
+        self._target = check_type(target, "target.setter", Data)
         
     @property
     def predict(self) -> Callable:
@@ -116,7 +116,7 @@ class ExplainabilityMethod(object):
 
     @predict.setter
     def predict(self, predict) -> None:
-        self._predict = check_type(predict, Callable, "predict.setter")
+        self._predict = check_type(predict, "predict.setter", Callable)
         
     @property
     def predict_proba(self) -> Callable:
@@ -130,7 +130,7 @@ class ExplainabilityMethod(object):
 
     @predict_proba.setter
     def predict_proba(self, predict_proba) -> None:
-        self._predict_proba = check_type(predict_proba, Callable, "predict_proba.setter")
+        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable)
     
     @property
     def model(self) -> Model:
@@ -144,7 +144,7 @@ class ExplainabilityMethod(object):
 
     @model.setter
     def model(self, model) -> None:
-        self._model = check_type(model, Model, "model.setter")
+        self._model = check_type(model, "model.setter", Model)
           
     @property
     def factuals(self) -> Data:
@@ -158,7 +158,7 @@ class ExplainabilityMethod(object):
 
     @factuals.setter
     def factuals(self, factuals) -> None:
-        self._factuals = check_type(factuals, Data, "factuals.setter")
+        self._factuals = check_type(factuals, "factuals.setter", Data)
         
     @property
     def factuals_target(self) -> Data:
@@ -172,7 +172,7 @@ class ExplainabilityMethod(object):
 
     @factuals_target.setter
     def factuals_target(self, factuals_target) -> None:
-            self._factuals_target = check_type(factuals_target, Data, "factuals_target.setter")
+            self._factuals_target = check_type(factuals_target, "factuals_target.setter", Data)
             if (self.factuals.dataset.shape[0]==self.factuals_target.dataset.shape[0]):
                 self._factuals_target = factuals_target
             else:
@@ -221,22 +221,22 @@ class ExplainabilityMethod(object):
             if len(X_)>0:
                 if len(Y_)>0:
                     self._processed_X = X_
-                    return self._explain(X=X_, Y=Y_, factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba)
+                    return self._explain(X=X_, Y=Y_, factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba, **kwargs)
                 else:
                     self._processed_X = X_
-                    return self._explain(X=X_, factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba)
+                    return self._explain(X=X_, factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba, **kwargs)
             else:
-                return self._explain(factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba)
+                return self._explain(factuals=facts_, factuals_target=facts_target_, predict=_predict, predict_proba=_predict_proba, **kwargs)
         else:
             if len(X_)>0:
                 if len(Y_)>0:
                     self._processed_X = X_
-                    return self._explain(X=X_, Y=Y_, factuals=facts_, predict=_predict, predict_proba=_predict_proba)
+                    return self._explain(X=X_, Y=Y_, factuals=facts_, predict=_predict, predict_proba=_predict_proba, **kwargs)
                 else:
                     self._processed_X = X_
-                    return self._explain(X=X_, factuals=facts_, predict=_predict, predict_proba=_predict_proba)
+                    return self._explain(X=X_, factuals=facts_, predict=_predict, predict_proba=_predict_proba, **kwargs)
             else:
-                return self._explain(factuals=facts_, predict=_predict, predict_proba=_predict_proba)
+                return self._explain(factuals=facts_, predict=_predict, predict_proba=_predict_proba, **kwargs)
 
     def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None) -> Union[Tuple[np.array, np.array], np.array]:
         if not self.factuals and not factuals:
@@ -287,4 +287,4 @@ class ExplainabilityMethod(object):
             return X_, Y_
 
     def __str__(self):
-        return f"Factuals: {self.factuals}, Factual Targets: {self.factuals_target}"
+        return f"Factuals: {self.factuals}, Factual Targets: {self.factuals_target}, Data: {self.data}, Target: {self.target}"

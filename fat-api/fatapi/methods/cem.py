@@ -1,5 +1,6 @@
 from fatapi.model import Model
 from fatapi.model.estimators import Transformer, DensityEstimator
+from fatapi.optimisers import Optimiser, FISTAOptimiser
 from fatapi.data import Data
 from fatapi.helpers import dijkstra, sigmoid
 from typing import Callable, Tuple, Union, List
@@ -16,12 +17,6 @@ class CEMMethod(ExplainabilityMethod):
     
     Parameters
     ----------
-    data? : fatapi.data.Data
-        Data object containing data and feature columns
-        -- Only required if X and Y are supplied to explain()
-    target? : fatapi.data.Data
-        Data object containing target data and target feature columns
-        -- Only required if X and Y are supplied to explain()
     factuals? : fatapi.data.Data
         Data object containing features of datapoints to be used in ExplainabilityMethod methods
         -- Only required if factuals and factuals_target are supplied to explain()
@@ -36,324 +31,400 @@ class CEMMethod(ExplainabilityMethod):
         -- Only required if predict not supplied
     mode? : String
         String specifying which elements of the counterfactual should be gathered - default is "pn" but can be "pp"/"pn"
-        -- Only required if kernel not supplied
+        -- Default is "pn"
     autoencoder()? : (X: numpy.array) -> numpy.array
-        Autoencoder which transforms datapoint X to get a more useful counterfactual result
+        Autoencoder which transforms datapoint X to get a more useful counterfactual result by making X closer to a data manifold
         -- Default returns X
     kappa? : float
         Confidence parameter which controls the seperation between the predicted class of the modified input and tbe
          next-highest-prediction predicted class of said modified input
         -- Default is 1
-    alpha? : float
+    c? : float
         Regularisation parameter for the loss function
         -- Default is 1
-    beta? : Float
+    beta? : float
         Regularisation parameter for the elastic net regulariser
         -- Default is 1
-    gamma? : Float
+    gamma? : float
         Regularisation parameter for the reconstruction error of autoencoding the input
         -- Default is 1, 0 if no autoencoder
-
+    initial_learning_rate? : float
+        Learning rate for the optimiser for the CEM loss function (initial learning rate if decay_function supplied to optimiser)
+        -- Default is 1e-2
+    decay_function? : (initial_learning_rate: float, iteration: int, max_iters: int) -> (learning_rate: float)
+        Function for decaying the learning_rate over iterations of the optimiser
+        -- Default is lambda x, **kwargs: x (Identity)
+    max_iters? : float
+        Maximum iterations for the optimiser on the CEM loss function
+        -- Default is 1000
+    search_c? : bool
+        Whether to do a binary search on 'c' to explore a larger spread of the feature space, or not
+        -- Default is False
+    search_c_max_iters? : float
+        Maximum iterations of a binary search on 'c'
+        -- Default is 10
+    search_c_upperbound? : float
+        Upper bound for the value of 'c' during binary search on 'c'
+        -- Default is 1e10
+    search_c_lowerbound? : float
+        Lower bound for the value of 'c' during binary search on 'c'
+        -- Default is 0
+    initial_deltas? : np.ndarray[num_features]
+        Initial value for the permutation of the factual (delta)
+        -- Default is np.zeros((1,X.shape[1]))
+       
     Methods
     -------
-    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> (graph: numpy.array, distances: numpy.array, paths: numpy.array, candidate_targets: List[int])
+    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
-        Returns a graph (N x N where N=n_samples), distances (len(paths) x )
+        Returns permutations for items of X in shape of X
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
                                             scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> numpy.array
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
-    build_graph() : (X: numpy.array, Y: numpy.array, t_distance?: Float, t_density?: Float, 
-                                    t_prediction?: Float, conditions()?: Callable) -> numpy.array
+    build_graph() : (X: numpy.array, Y: numpy.array, t_distance?: float, t_density?: float, 
+                                    t_prediction?: float, conditions()?: Callable) -> numpy.array
         Builds graph for distances between nodes in the feature space - returns adjacency matrix of weights between [i,j]; 
         i, j are indicies of datapoints in X (rows)
-    get_graph() : () -> numpy.array
+    get_permutations() : () -> numpy.array
         Returns the graph which build_graph() produces
-    get_explain_distances() : () -> List[float]
-        Returns the distances to the counterfactuals from the starting datapoint
-    get_explain_candidates() : () -> numpy.array
-        Returns the valid candidate indexes of datapoints that satisfy edge conditions from each factual datapoint
-    get_explain_paths() : () -> numpy.array
-        Returns the best paths from the factuals to the counterfactuals
+    get_explain_targets() : () -> List[float]
+        Returns the classifications of X after explain (PP: Y[i] for X[i] / PN: class after X[i]+permutations[i])
     get_counterfactuals(as_indexes?: bool) : () -> numpy.array
-        Returns the counterfactuals for the supplied factuals (classifications / Y values)
+        Returns the counterfactuals for the supplied factuals (permutations of X)
         -- Default is as data (not as_indexes)
     get_counterfactuals_as_data() : () -> numpy.array
-        Returns the counterfactual datapoints as data in the same form X and Y were supplied as tuple (data, target)
+        Returns the counterfactuals as data in the same form X and Y were supplied as tuple (data, target)
         -- target is the same as get_counterfactuals()
     """
     def __init__(self, *args, **kwargs) -> None:
-        super(FACEMethod, self).__init__(*args, **kwargs)
+        super(CEMMethod, self).__init__(*args, **kwargs)
         if not ('factuals' in kwargs and 'factuals_target' in kwargs):
-            print("Warning in __init__: factuals and factuals_target not supplied - need to provide X and Y to explain()")
-        if not ('kernel' in kwargs or 'kernel_type' in kwargs):
-            raise ValueError(f"Invalid arguments in __init__: please provide kernel or kernel_type")
-        if 'data' in kwargs and not 'target' in kwargs:
-            raise ValueError(f"Invalid arguments in __init__: please provide data and target or provide X and Y to explain()")
-        ktype = ""
-        if 'kernel_type' in kwargs:
-            ktype = check_type(kwargs.get("kernel_type"), str, "__init__")
-        if not (ktype.lower()=="kde".lower() or ktype.lower()=="knn".lower() or ktype.lower()=="e".lower() or ktype.lower()=="gs".lower()):
-            raise ValueError(f"Invalid arguments in __init__: kernel_type must be 'kde', 'knn', 'e' or 'gs'")
+            print("Warning in __init__: factuals and factuals_target not supplied - need to provide factuals and factuals_target to explain()")
         else:
-            self._kernel_type = ktype
-            ks = {"kde" : self.kernel_KDE, "knn" : self.kernel_KNN, "e" : self.kernel_E, "gs" : self.kernel_GS}
-            self._kernel = ks[self._kernel_type.lower()]
-        if 'kernel' in kwargs:
-            self._kernel = check_type(kwargs.get("kernel"), Callable, "__init__")
-        if 'data' in kwargs:
-            self.data = check_type(kwargs.get("data"), Data, "__init__")
-        if 'target' in kwargs:
-            self.target = check_type(kwargs.get("target"), Data, "__init__")
-        self._t_distance = 10000
-        self._epsilon = 0.75
-        self._t_prediction = 0.5
-        self._t_density = 0.001
-        self._n_neighbours = 20
-        self._K = 10
-        self._t_radius = 1.10
-        self._shortest_path = dijkstra
-        self._conditions = lambda **kwargs: True
-        self._weight_function = lambda x: -np.log(x)
-        self._density_estimator = DensityEstimator()
-        if 'shortest_path' in kwargs:
-            self._shortest_path = check_type(kwargs.get("shortest_path"), Callable, "__init__")
-        if self._kernel_type=="kde" and not 'density_estimator' in kwargs:
-            raise ValueError("Missing argument in __init__: density_estimator required when kernel_type is 'kde'; recommended to use methods fit, score_samples from sklearn.neighbors.KernelDensity")
-        if 'density_estimator' in kwargs:
-            self._density_estimator = check_type(kwargs.get("density_estimator"), DensityEstimator, "__init__")
-        if 't_distance' in kwargs:
-            self._t_distance = check_type(kwargs.get("t_distance"), float, "__init__")
-        if 'epsilon' in kwargs:
-            self._epsilon = check_type(kwargs.get("epsilon"), float, "__init__")
-        if 't_prediction' in kwargs:
-            self._t_prediction = check_type(kwargs.get("t_prediction"), float, "__init__")
-        if 't_density' in kwargs:
-            if not self._kernel_type=="kde":
-                print("Warning in __init__: t_density supplied but kernel may not be kde")
-            if kwargs.get('t_density') >= 0 and kwargs.get('t_density') <= 1:
-                self._t_density = check_type(kwargs.get("t_density"), float, "__init__")
+            self._factuals = check_type(kwargs.get("factuals"), "__init__", np.ndarray)
+            self._factuals_target = check_type(kwargs.get("factuals_target"), "__init__", np.ndarray)
+        if not 'autoencoder' in kwargs:
+            print("Warning in __init__: no autoencoder supplied - X will not be put closer to data manifold and results may be inaccurate")
+        noAE = True
+        self._autoencoder = lambda x, **kwargs: x
+        self._mode = "pn"
+        self._search_c = False
+        self._search_c_max_iters = 10
+        self._search_c_upperbound = 1e10
+        self._search_c_lowerbound = 0
+        self._kappa = 1
+        self._c = 1
+        self._beta = 1
+        self._gamma = 0
+        self._initial_deltas = np.zeros((1, np.shape(self._factuals)[1]))
+        self._initial_learning_rate = 1e-2
+        self._decay_function = lambda x, **kwargs : x
+        self._max_iters = 1000
+        if 'autoencoder' in kwargs:
+            self._autoencoder = check_type(kwargs.get("autoencoder"), "__init__", Callable)
+            self._gamma = 1
+            noAE = False
+        if 'mode' in kwargs:
+            if not (kwargs.get('mode').lower()=="pp" or kwargs.get('mode').lower()=="pn"):
+                raise ValueError(f"Invalid arguments in __init__: mode must be 'pn' or 'pp'")
             else:
-                raise ValueError(f"Invalid argument in __init__: t_density must be between 0 and 1")
-        if 'n_neighbours' in kwargs:
-            self._n_neighbours = check_type(kwargs.get("n_neighbours"), int, "__init__")
-        if 'K' in kwargs:
-            self._K = check_type(kwargs.get("K"), int, "__init__")
-        if 't_radius' in kwargs:
-            self._t_radius = check_type(kwargs.get("t_radius"), int, "__init__")
-        if 'conditions' in kwargs:
-            self._conditions = check_type(kwargs.get("conditions"), Callable, "__init__")
-        if 'weight_function' in kwargs:
-            self._weight_function = check_type(kwargs.get("weight_function"), Callable, "__init__")
-        if self._kernel_type=="knn":
-            if not 'n_neighbours' in kwargs:
-                print("Warning in __init__: n_neighbours not supplied - default (20) being used")
-        if self.K=="gs":
-            if not 'K' in kwargs:
-                print("Warning in __init__: K not supplied - default (10) being used")
-        self._explain = self.explain_FACE
-        self.graph = None
+                self._mode = check_type(kwargs.get("mode"), "__init__", str)
+        if 'search_c' in kwargs:
+            self._search_c = check_type(kwargs.get("search_c"), "__init__", bool)
+        if self._search_c:
+            self._c = 10
+        if 'search_c_max_iters' in kwargs:
+            if kwargs.get('search_c_max_iters') >= 1:
+                self._search_c_max_iters = check_type(kwargs.get("search_c_max_iters"), "__init__", int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: search_c_max_iters must be >= 1")
+        if 'search_c_upperbound' in kwargs:
+            self._search_c_upperbound = check_type(kwargs.get("search_c_upperbound"), "__init__", float, int)
+        if 'search_c_lowerbound' in kwargs:
+            self._search_c_lowerbound = check_type(kwargs.get("search_c_lowerbound"), "__init__", float, int)
+        if self._search_c_lowerbound >= self._search_c_upperbound:
+            raise ValueError(f"Invalid argument in __init__: search_c_lowerbound must be less than search_c_upperbound")
+        if 'max_iters' in kwargs:
+            if kwargs.get('max_iters') >= 1:
+                self._max_iters = check_type(kwargs.get("max_iters"), "__init__", int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: max_iters must be >= 1")
+        if 'kappa' in kwargs:
+            if kwargs.get('kappa') >= 0:
+                self._kappa = check_type(kwargs.get("kappa"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: kappa must be >= 0")
+        if 'c' in kwargs:
+            if kwargs.get('c') >= 0:
+                self._c = check_type(kwargs.get("c"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: c must be >= 0")
+        if 'beta' in kwargs:
+            if kwargs.get('beta') >= 0:
+                self._beta = check_type(kwargs.get("beta"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: beta must be >= 0")
+        if 'gamma' in kwargs:
+            if (noAE) or (not noAE and kwargs.get('gamma') >= 0):
+                self._gamma = check_type(kwargs.get("gamma"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: gamma must be >= 0")
+        if 'initial_learning_rate' in kwargs:
+            if kwargs.get('initial_learning_rate') >= 0:
+                self._initial_learning_rate = check_type(kwargs.get("initial_learning_rate"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: initial_learning_rate must be >= 0")
+        if 'decay_function' in kwargs:
+            self._decay_function = check_type(kwargs.get("decay_function"), "__init__", Callable)
+        if 'initial_deltas' in kwargs:
+            self._initial_deltas = check_type(kwargs.get("initial_deltas"), "__init__", np.ndarray)
+            if not np.shape(self._initial_deltas[1])==np.shape(self._factuals[1]):
+                raise ValueError(f"Invalid argument in __init__: initial_deltas must be the same shape as features")
+        #optimiser should take func, autoencoder, factuals, factuals_target, decay_function, initial_deltas, beta, max_iters
+        #fistaoptimiser should take above plus beta
+        # The Fast Iterative Shrinkage-Thresholding Algorithm [https://www.ceremade.dauphine.fr/~carlier/FISTA] optimiser
+        self._optimiser = FISTAOptimiser(objective=self.objective_function, autoencoder=self._autoencoder, predict_proba=self._predict_proba, 
+                                         initial_deltas=self._initial_deltas, max_iters=self._max_iters, beta=self._beta, decay_function=self._decay_function)
+        if 'optimiser' in kwargs:
+            self._optimiser = check_type(kwargs.get("optimiser"), "__init__", Optimiser)
+            self._optimiser.objective = self.objective_function
+            self._optimiser.autoencoder = self._autoencoder
+            self._optimiser.predict_proba = self._predict_proba
+            if not hasattr(self._optimiser, 'decay_function'):
+                self._optimiser.decay_function = self._decay_function
+            self._optimiser.initial_deltas = self._initial_deltas
+            self._optimiser.beta = self._beta
+            self._optimiser.max_iters = self._max_iters
 
     @property
-    def shortest_path(self) -> Callable:
+    def autoencoder(self) -> Callable:
         """
-        Sets and changes the shortest_path algorithm
+        Sets and changes the autoencoder which transforms X to be closer to the data manifold
         -------
         Callable
         """
         
-        return self._shortest_path
+        return self._autoencoder
 
-    @shortest_path.setter
-    def shortest_path(self, shortest_path) -> None:
-        self._shortest_path = check_type(shortest_path, Callable, "__init__")
+    @autoencoder.setter
+    def autoencoder(self, autoencoder) -> None:
+        self._autoencoder = check_type(autoencoder, "__init__", Callable)
 
     @property
-    def density_estimator(self) -> DensityEstimator:
+    def mode(self) -> float:
         """
-        Sets and changes the density_estimator attribute
+        Sets and changes the mode of the CEM algorithm - pertient positives or pertient negatives
         -------
         Callable
         """
         
-        return self._density_estimator
-
-    @density_estimator.setter
-    def density_estimator(self, density_estimator) -> None:
-        self._density_estimator = check_type(density_estimator, DensityEstimator, "__init__")
-
-    @property
-    def conditions(self) -> bool:
-        """
-        Sets and changes the extra conditions feasible paths must pass
-        -------
-        Callable
-        """
-        
-        return self._conditions
-
-    @conditions.setter
-    def conditions(self, conds) -> None:
-        self._conditions = check_type(conds, Callable, "conditions.setter")
-
-    @property
-    def weight_function(self) -> float:
-        """
-        Sets and changes the extra weight_function feasible paths must pass
-        -------
-        Callable
-        """
-        
-        return self._weight_function
-
-    @weight_function.setter
-    def weight_function(self, weight_function) -> None:
-        self._weight_function = check_type(weight_function, Callable, "weight_function.setter")
-
-    @property
-    def kernel(self) -> Callable:
-        """
-        Sets and changes the kernel algorithm
-        -------
-        Callable
-        """
-        
-        return self._kernel
-
-    @kernel.setter
-    def kernel(self, kernel) -> None:
-        self._kernel = check_type(kernel, Callable, "kernel.setter")
-
-    @property
-    def t_prediction(self) -> float:
-        """
-        Sets and changes the prediction threshold
-        -------
-        Callable
-        """
-        
-        return self._t_prediction
-
-    @t_prediction.setter
-    def t_prediction(self, t_prediction) -> None:
-        if t_prediction >= 0 and t_prediction <= 1:
-            self._t_prediction = check_type(t_prediction, float, "t_prediction.setter")
+        return self._mode
+    
+    @mode.setter
+    def mode(self, mode) -> None:
+        if mode.lower()=="pn".lower() or mode.lower()=="pp".lower():
+            self._mode = mode
         else:
-            raise ValueError("Invalid argument in t_prediction.setter: t_prediction must be between 0 and 1 (inclusive)")
+            raise ValueError("Invalid argument in kernel.setter: mode is not 'pp' or 'pn'") 
 
     @property
-    def t_distance(self):
+    def kappa(self):
         """
-        Sets and changes the distance threshold
+        Sets and changes the kappa variable of the CEM algorithm
         -------
         Callable
         """
         
-        return self._t_distance
-
-    @t_distance.setter
-    def t_distance(self, t_distance) -> None:
-        if type(t_distance)==float or type(t_distance)==int:
-            self._t_distance = t_distance
+        return self._kappa
+        
+    @kappa.setter
+    def kappa(self, kappa) -> None:
+        if kappa >= 0:
+            self._kappa = check_type(kappa, "kappa.setter", float, int)
         else:
-            raise ValueError("Invalid argument in t_distance.setter: t_distance must be a number")
+            raise ValueError("Invalid argument in kappa.setter: kappa must be >= 0")
 
     @property
-    def t_density(self):
+    def c(self):
         """
-        Sets and changes the density threshold
+        Sets and changes the c variable of the CEM algorithm
         -------
         Callable
         """
         
-        return self._t_density
+        return self._c
 
-    @t_density.setter
-    def t_density(self, t_density) -> None:
-        if type(t_density)==float or type(t_density)==int:
-            self._t_density = t_density
+    @c.setter
+    def c(self, c) -> None:
+        if c >= 0:
+            self._c = check_type(c, "c.setter", float, int)
         else:
-            raise ValueError("Invalid argument in t_density.setter: t_density must be a number")
+            raise ValueError("Invalid argument in c.setter: c must be >= 0")
 
     @property
-    def t_radius(self):
+    def beta(self):
         """
-        Sets and changes the radius threshold
+        Sets and changes the beta variable of the CEM algorithm
         -------
         Callable
         """
         
-        return self._t_radius
+        return self._beta
 
-    @t_radius.setter
-    def t_radius(self, t_radius) -> None:
-        if type(t_radius)==float or type(t_radius)==int:
-            self._t_radius = t_radius
+    @beta.setter
+    def beta(self, beta) -> None:
+        if beta >= 0:
+            self._beta = check_type(beta, "beta.setter", float, int)
         else:
-            raise ValueError("Invalid argument in t_radius.setter: t_radius must be a number")
+            raise ValueError("Invalid argument in beta.setter: beta must be >= 0")
 
     @property
-    def epsilon(self):
+    def gamma(self):
         """
-        Sets and changes the epsilon threshold
+        Sets and changes the gamma variable of the CEM algorithm
         -------
         Callable
         """
         
-        return self._epsilon
+        return self._gamma
 
-    @epsilon.setter
-    def epsilon(self, epsilon) -> None:
-        if type(epsilon)==float or type(epsilon)==int:
-            self._epsilon = epsilon
+    @gamma.setter
+    def gamma(self, gamma) -> None:
+        if gamma >= 0:
+            self._gamma = check_type(gamma, "gamma.setter", float, int)
         else:
-            raise ValueError("Invalid argument in epsilon.setter: epsilon must be a number")
-        
+            raise ValueError("Invalid argument in gamma.setter: gamma must be >= 0")
+
     @property
-    def K(self) -> int:
+    def search_c(self) -> Callable:
         """
-        Sets and changes K (GS kernel neighbours)
+        Sets and changes whether the 'c' regularisation parameter gets found via binary search
         -------
         Callable
         """
         
-        return self._K
+        return self._search_c
 
-    @K.setter
-    def K(self, K) -> None:
-        self._K = check_type(K, int, "K.setter")
-
+    @search_c.setter
+    def search_c(self, search_c) -> None:
+        self._search_c = check_type(search_c, "__init__", bool)
+        
     @property
-    def n_neighbours(self) -> int:
+    def search_c_max_iters(self):
         """
-        Sets and changes n_neighbours (KNN kernel neighbours)
+        Sets and changes the maximum iterations over the binary search over 'c'
         -------
         Callable
         """
         
-        return self._n_neighbours
+        return self._search_c_max_iters
 
-    @n_neighbours.setter
-    def n_neighbours(self, n_neighbours) -> None:
-        self._n_neighbours = check_type(n_neighbours, int, "n_neighbours.setter")
-
-    @property
-    def kernel_type(self) -> Callable:
-        """
-        Sets and changes the kernel_type
-        -------
-        Callable
-        """
-        
-        return self._kernel_type
-
-    @kernel_type.setter
-    def kernel_type(self, kernel_type) -> None:
-        if kernel_type.lower()=="kde".lower() or kernel_type.lower()=="knn".lower() or kernel_type.lower()=="e".lower() or kernel_type.lower()=="gs".lower():
-            self._kernel_type = kernel_type
+    @search_c_max_iters.setter
+    def search_c_max_iters(self, search_c_max_iters) -> None:
+        if search_c_max_iters >= 1:
+            self._search_c_max_iters = check_type(search_c_max_iters, "search_c_max_iters.setter", int)
         else:
-            raise ValueError("Invalid argument in kernel.setter: kernel_type is not 'kde', 'knn', 'e' or 'gs'") 
+            raise ValueError("Invalid argument in search_c_max_iters.setter: search_c_max_iters must be >= 1")
 
+    @property
+    def max_iters(self):
+        """
+        Sets and changes the maximum iterations over the optimiser
+        -------
+        Callable
+        """
+        
+        return self._max_iters
+
+    @max_iters.setter
+    def max_iters(self, max_iters) -> None:
+        if max_iters >= 1:
+            self._max_iters = check_type(max_iters, "max_iters.setter", int)
+        else:
+            raise ValueError("Invalid argument in max_iters.setter: max_iters must be >= 1")
+
+    @property
+    def decay_function(self) -> Callable:
+        """
+        Sets and changes the decay_function which decays the learning_rate over iterations of the optimiser
+        -------
+        Callable
+        """
+        
+        return self._decay_function
+
+    @decay_function.setter
+    def decay_function(self, decay_function) -> None:
+        self._decay_function = check_type(decay_function, "__init__", Callable)
+        
+    @property
+    def search_c_lowerbound(self) -> Callable:
+        """
+        Sets and changes the lower bound of the 'c' parameter for search
+        -------
+        Callable
+        """
+        
+        return self._search_c_lowerbound
+
+    @search_c_lowerbound.setter
+    def search_c_lowerbound(self, search_c_lowerbound) -> None:
+        if search_c_lowerbound >= self.search_c_upperbound:
+            self._search_c_lowerbound = check_type(search_c_lowerbound, "search_c_lowerbound.setter", float, int)
+        else:
+            raise ValueError("Invalid argument in search_c_lowerbound.setter: search_c_lowerbound must be < search_c_upperbound")
+        
+    @property
+    def search_c_upperbound(self) -> Callable:
+        """
+        Sets and changes the upper bound of the 'c' parameter for search
+        -------
+        Callable
+        """
+        
+        return self._search_c_upperbound
+
+    @search_c_upperbound.setter
+    def search_c_upperbound(self, search_c_upperbound) -> None:
+        if search_c_upperbound <= self.search_c_lowerbound:
+            self._search_c_upperbound = check_type(search_c_upperbound, "search_c_upperbound.setter", float, int)
+        else:
+            raise ValueError("Invalid argument in search_c_upperbound.setter: search_c_upperbound must be > search_c_lowerbound")
+    
+    @property
+    def initial_learning_rate(self):
+        """
+        Sets and changes the learning rate of the optimiser
+        -------
+        Callable
+        """
+        
+        return self._initial_learning_rate
+
+    @initial_learning_rate.setter
+    def initial_learning_rate(self, initial_learning_rate) -> None:
+        if initial_learning_rate > 0:
+            self._initial_learning_rate = check_type(initial_learning_rate, "initial_learning_rate.setter", float, int)
+        else:
+            raise ValueError("Invalid argument in initial_learning_rate.setter: initial_learning_rate must be > 0")
+    
+    @property
+    def initial_initial_deltas(self):
+        """
+        Sets and changes the initial values of delta for the CEM algorithm
+        -------
+        Callable
+        """
+        
+        return self._initial_initial_deltas
+
+    @initial_initial_deltas.setter
+    def initial_initial_deltas(self, initial_initial_deltas) -> None:
+        self._initial_initial_deltas = check_type(initial_initial_deltas, "initial_initial_deltas.setter", np.ndarray)
+        if not np.shape(initial_initial_deltas)[1] == np.shape(self._factuals)[1]:
+            raise ValueError("Invalid argument in initial_initial_deltas.setter: initial_initial_deltas must have same number of features as factuals")
+    
     def kernel_KDE(self, X: np.ndarray, t_density: float, t_distance: float, density_estimator: DensityEstimator, weight_function: Callable, samples=None):
         density_estimator.fit(X)
         n_samples = X.shape[0]

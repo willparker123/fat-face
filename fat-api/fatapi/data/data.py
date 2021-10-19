@@ -76,7 +76,7 @@ class Data():
 
     @encoded.setter
     def encoded(self, encoded) -> None:
-        self._encoded = check_type(encoded, bool, "encoded.setter")
+        self._encoded = check_type(encoded, "encoded.setter", bool)
 
     @property
     def categoricals(self) -> List[int]:
@@ -92,7 +92,7 @@ class Data():
     def categoricals(self, categoricals) -> None:
         if len(self._categoricals) > 0 and not_in_range(self.n_features, self._categoricals):
             raise ValueError("Invalid argument in categoricals.setter: Index in categoricals is out of range")        
-        self._categoricals = check_type(categoricals, List[int], "categoricals.setter")
+        self._categoricals = check_type(categoricals, "categoricals.setter", List[int])
         
 
     @property
@@ -109,7 +109,7 @@ class Data():
     def numericals(self, numericals) -> None:
         if len(self._numericals) > 0 and not_in_range(self.n_features, self._numericals):
             raise ValueError("Invalid argument in numericals.setter: Index in numericals is out of range")
-        self._numericals = check_type(numericals, List[int], "numericals.setter")
+        self._numericals = check_type(numericals, "numericals.setter", List[int])
 
     def __str__(self):
         return f"Data: {self.dataset}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.encoded}"

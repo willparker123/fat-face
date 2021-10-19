@@ -132,7 +132,7 @@ class Clue(RecourseMethod):
         )
 
         # Error message when training VAE using float 64: -> Change to: float 32
-        # "Expected object of scalar type Float but got scalar type Double for argument #2 'mat1' in call to _th_addmm"
+        # "Expected object of scalar type float but got scalar type Double for argument #2 'mat1' in call to _th_addmm"
         x_train = np.float32(x_train)
         x_test = np.float32(x_test)
 

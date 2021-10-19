@@ -8,7 +8,7 @@ import numpy as np
 
 class Model(object):
     """
-    Abstract class containing methods used involving the model / interacting with the blackbox model
+    Abstract class containing methods used involving the model / interacting with the blackbox--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- model
     
     Parameters
     ----------
@@ -62,7 +62,7 @@ class Model(object):
         if not ('blackbox' in kwargs) or ('fit' in kwargs and 'predict' in kwargs and 'predict_proba' in kwargs):
             raise ValueError(f"Missing arguments in __init__: [{'' if 'blackbox' in kwargs else 'blackbox'}, {'' if 'fit' in kwargs else 'fit'}, {'' if 'predict' in kwargs else 'predict'}, {'' if 'predict_proba' in kwargs else 'predict_proba'}, {'' if 'score' in kwargs else 'score'}]")
         if kwargs.get("blackbox"):
-            self.blackbox = check_type(kwargs.get("blackbox"), BlackBox, "__init__")
+            self.blackbox = check_type(kwargs.get("blackbox"), "__init__", BlackBox)
             self._fit = self.blackbox.fit
             self._predict = self.blackbox.predict
             self._predict_proba = self.blackbox.predict_proba
@@ -70,25 +70,25 @@ class Model(object):
                 self._score = self.blackbox.score
         else:
             if 'fit' in kwargs:
-                self._fit = check_type(kwargs.get("fit"), Callable, "__init__")
+                self._fit = check_type(kwargs.get("fit"), "__init__", Callable)
             if 'predict' in kwargs:
-                self._predict = check_type(kwargs.get("predict"), Callable, "__init__")
+                self._predict = check_type(kwargs.get("predict"), "__init__", Callable)
             if 'predict_proba' in kwargs:
-                self._predict_proba = check_type(kwargs.get("predict_proba"), Callable, "__init__")
+                self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable)
             if 'score' in kwargs:
-                self._score = check_type(kwargs.get("score"), Callable, "__init__")
-        data = check_type(data, Data, "__init__")
+                self._score = check_type(kwargs.get("score"), "__init__", Callable)
+        data = check_type(data, "__init__", Data)
         if data.encoded or (kwargs.get('encoder') and kwargs.get('scaler')):
             d : Data = data
             self.data = d
         else:
             raise ValueError("Invalid argument in __init__: data must be encoded or (scaler, encoder) must be supplied")
         if 'encoder' in kwargs:
-            self._encoder = check_type(kwargs.get("encoder"), Transformer, "__init__")
+            self._encoder = check_type(kwargs.get("encoder"), "__init__", Transformer)
         if 'scaler' in kwargs:
-            self._scaler = check_type(kwargs.get("scaler"), Transformer, "__init__")
+            self._scaler = check_type(kwargs.get("scaler"), "__init__", Transformer)
         if target:
-            target = check_type(target, Data, "__init__")
+            target = check_type(target, "__init__", Data)
             if (target.n_data == data.n_data):
                 if target.encoded or ('encoder' in kwargs and 'scaler' in kwargs):
                     t : Data = target
@@ -143,7 +143,7 @@ class Model(object):
 
     @fit.setter
     def fit(self, fit) -> None:
-        self._fit = check_type(fit, Callable, "fit.setter")
+        self._fit = check_type(fit, "fit.setter", Callable)
         
     @property
     def predict(self) -> Callable:
@@ -156,7 +156,7 @@ class Model(object):
 
     @predict.setter
     def predict(self, predict) -> None:
-        self._predict = check_type(predict, Callable, "predict.setter")
+        self._predict = check_type(predict, "predict.setter", Callable)
         
     @property
     def predict_proba(self) -> Callable:
@@ -169,7 +169,7 @@ class Model(object):
 
     @predict_proba.setter
     def predict_proba(self, predict_proba) -> None:
-        self._predict_proba = check_type(predict_proba, Callable, "predict_proba.setter")
+        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable)
         
     @property
     def score(self) -> Callable:
@@ -182,7 +182,7 @@ class Model(object):
 
     @score.setter
     def score(self, score) -> None:
-        self._score = check_type(score, Callable, "score.setter")
+        self._score = check_type(score, "score.setter", Callable)
         
     @property
     def encoder(self) -> Transformer:
@@ -196,7 +196,7 @@ class Model(object):
 
     @encoder.setter
     def encoder(self, encoder) -> None:
-        self._encoder = check_type(encoder, Transformer, "encoder.setter")
+        self._encoder = check_type(encoder, "encoder.setter", Transformer)
         
     @property
     def scaler(self) -> Transformer:
@@ -210,7 +210,7 @@ class Model(object):
 
     @scaler.setter
     def scaler(self, scaler) -> None:
-        self._scaler = check_type(scaler, Transformer, "scaler.setter")
+        self._scaler = check_type(scaler, "scaler.setter", Transformer)
         
     def encode(self, X: np.ndarray, columns: List[int]=None):
         if not_in_range(X.shape[1], columns):

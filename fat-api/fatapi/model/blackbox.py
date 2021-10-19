@@ -61,7 +61,7 @@ class BlackBox(object):
 
     @fit.setter
     def fit(self, fit) -> None:
-        self._fit = check_type(fit, Callable, "fit.setter")
+        self._fit = check_type(fit, "fit.setter", Callable)
         
     @property
     def predict(self) -> Callable:
@@ -75,7 +75,7 @@ class BlackBox(object):
 
     @predict.setter
     def predict(self, predict) -> None:
-        self._predict = check_type(predict, Callable, "predict.setter")
+        self._predict = check_type(predict, "predict.setter", Callable)
         
     @property
     def predict_proba(self) -> Callable:
@@ -89,7 +89,7 @@ class BlackBox(object):
 
     @predict_proba.setter
     def predict_proba(self, predict_proba) -> None:
-        self._predict_proba = check_type(predict_proba, Callable, "predict_proba.setter")
+        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable)
         
     @property
     def score(self) -> Callable:
@@ -102,4 +102,7 @@ class BlackBox(object):
 
     @score.setter
     def score(self, score) -> None:
-        self._score = check_type(score, Callable, "score.setter")
+        self._score = check_type(score, "score.setter", Callable)
+        
+    def __str__(self):
+        return f"Classifier: {self.classifier}"
