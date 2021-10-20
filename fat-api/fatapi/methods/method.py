@@ -20,25 +20,25 @@ class ExplainabilityMethod(object):
         Data object containing features of datapoints to be used in ExplainabilityMethod methods
     factuals_target? : fatapi.data.Data
         Data object containing target features of datapoints to be used in ExplainabilityMethod methods
-    predict()? : (X: np.array) -> np.array()
+    predict()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
         -- Only required if model not supplied
-    predict_proba()? : (X: np.array) -> float
+    predict_proba()? : (X: np.ndarray) -> np.ndarray
         Method for getting the probability of X being the predicted class label
         -- Only required if model not supplied
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
-    explain()? : (self, X: numpy.array, Y?: numpy.array, _predict()?: Callable) -> numpy.array
+    explain()? : (self, X: np.ndarray, Y?: np.ndarray, _predict()?: Callable) -> np.ndarray
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
     
     Methods
     -------
-    explain() : (X?: numpy.array, Y?: numpy.array, _predict()?: Callable) -> numpy.array
+    explain() : (X?: np.ndarray, Y?: np.ndarray, _predict()?: Callable) -> np.ndarray
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
-                                            scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> numpy.array
+                                            scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> np.ndarray
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
     """
     def __init__(self, factuals=None, factuals_target=None, **kwargs) -> None:
@@ -50,9 +50,9 @@ class ExplainabilityMethod(object):
             self._predict = self._model.predict
             self._predict_proba = self._model.predict_proba
         if 'predict' in kwargs:
-            self._predict = check_type(kwargs.get("predict"), "__init__", Callable[[np.array], np.array])
+            self._predict = check_type(kwargs.get("predict"), "__init__", Callable[[np.ndarray], np.ndarray])
         if 'predict_proba' in kwargs:
-            self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.array], float])
+            self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.ndarray], float])
         self._explain = lambda **kwargs: kwargs
         if 'explain' in kwargs:
             self._explain = check_type(kwargs.get("explain"), "__init__", Callable)
@@ -77,7 +77,7 @@ class ExplainabilityMethod(object):
         return self._processed_X
 
     @property
-    def data(self) -> Callable:
+    def data(self) -> Data:
         """
         Sets and changes the data attribute
         -------
@@ -91,7 +91,7 @@ class ExplainabilityMethod(object):
         self._data = check_type(data, "data.setter", Data)
 
     @property
-    def target(self) -> Callable:
+    def target(self) -> Data:
         """
         Sets and changes the target attribute
         -------
@@ -105,7 +105,7 @@ class ExplainabilityMethod(object):
         self._target = check_type(target, "target.setter", Data)
         
     @property
-    def predict(self) -> Callable:
+    def predict(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict method of the explainability method
         -------
@@ -116,10 +116,10 @@ class ExplainabilityMethod(object):
 
     @predict.setter
     def predict(self, predict) -> None:
-        self._predict = check_type(predict, "predict.setter", Callable)
+        self._predict = check_type(predict, "predict.setter", Callable[[np.ndarray], np.ndarray])
         
     @property
-    def predict_proba(self) -> Callable:
+    def predict_proba(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict_proba method of the explainability method
         -------
@@ -130,7 +130,7 @@ class ExplainabilityMethod(object):
 
     @predict_proba.setter
     def predict_proba(self, predict_proba) -> None:
-        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable)
+        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable[[np.ndarray], np.ndarray])
     
     @property
     def model(self) -> Model:
@@ -178,7 +178,7 @@ class ExplainabilityMethod(object):
             else:
                 raise ValueError("Invalid argument in factuals_target.setter: factuals_target has a different number of points than factuals")
 
-    def explain(self, X: np.array=[], Y: np.array=[], factuals: np.array=[], factuals_target: np.array=[], predict: Callable=None, predict_proba: Callable=None, **kwargs) -> Union[np.array, Tuple[np.array, np.array]]:
+    def explain(self, X: np.ndarray=[], Y: np.ndarray=[], factuals: np.ndarray=[], factuals_target: np.ndarray=[], predict: Callable[[np.ndarray], np.ndarray]=None, predict_proba: Callable[[np.ndarray], np.ndarray]=None, **kwargs) -> np.ndarray:
         facts_, facts_target_ = self.preprocess_factuals()
         if len(factuals)>0:
             facts_ = factuals
@@ -238,7 +238,7 @@ class ExplainabilityMethod(object):
             else:
                 return self._explain(factuals=facts_, predict=_predict, predict_proba=_predict_proba, **kwargs)
 
-    def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None) -> Union[Tuple[np.array, np.array], np.array]:
+    def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None) -> np.ndarray:
         if not self.factuals and not factuals:
             raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.factuals else 'self.factuals'} or {'' if factuals else 'factuals'}")
         facts = None

@@ -1,6 +1,6 @@
 import numpy as np
 
-from fatapi.helpers import not_in_range, keep_cols
+from fatapi.helpers import not_in_range, keep_cols, check_type
 from typing import Callable, List
 
 class Transformer(object):
@@ -9,66 +9,49 @@ class Transformer(object):
     
     Parameters
     ----------
-    fit(X: numpy.array, columns?: List[int]) -> numpy.array:
+    fit()? : (X: np.ndarray, columns: List[int])
         Fits the transformer to X - creates category dict internally
-    transform(X: numpy.array, columns?: List[int]) -> numpy.array:
+    transform() : (X: np.ndarray) -> np.ndarray
         Generate transformed data from X using columns[] - requires fit
-    inverse_transform(X: numpy.array, columns?: List[int]) -> numpy.array:
+    inverse_transform() : (X: np.ndarray) -> np.ndarray
         Generate original data from transformed X using columns[] - requires fit
     
     Methods
     -------
-    fit(X: numpy.array, columns?: List[int]) -> numpy.array:
+    fit() : (X: np.ndarray, columns: List[int])
         Fits the transformer to X - creates category dict internally
-    transform(X: numpy.array, columns?: List[int]) -> numpy.array:
+    transform() : (X: np.ndarray) -> np.ndarray
         Generate transformed data from X using columns[] - requires fit
-    inverse_transform(X: numpy.array, columns?: List[int]) -> numpy.array:
+    inverse_transform() : (X: np.ndarray) -> np.ndarray
         Generate original data from transformed X using columns[] - requires fit
-    encode(X: np.ndarray, columns: List[int]):
+    encode() : (X: np.ndarray, columns?: List[int]) -> np.ndarray
         Fits and transforms the data using encoder
         -- If no encoder, returns X
-    decode(X: np.ndarray, columns: List[int]):
+    decode() : (X: np.ndarray, columns?: List[int]) -> np.ndarray
         Inverse_transforms the data using encoder
         -- If no encoder, returns X
     """
-    def __init__(self, fit, transform, inverse_transform) -> None:
-        if (callable(fit)):
-            self.fit = fit
-        else:
-            raise ValueError("Invalid argument in __init__: fit is not a function")
-        if (callable(transform)):
-            self.transform = transform
-        else:
-            raise ValueError("Invalid argument in __init__: transform is not a function")
-        if (callable(inverse_transform)):
-            self.inverse_transform = inverse_transform
-        else:
-            raise ValueError("Invalid argument in __init__: inverse_transform is not a function")
+    def __init__(self, transform, inverse_transform, fit=None) -> None:
+        self.fit = self.base_fit()
+        if fit:
+            self.fit = check_type(fit, "__init__", Callable[[np.ndarray, List[int]], None])
+        self.transform = check_type(transform, "__init__", Callable[[np.ndarray], np.ndarray])
+        self.inverse_transform = check_type(inverse_transform, "__init__", Callable[[np.ndarray], np.ndarray])
 
-    @property
-    def fit(self) -> Callable:
-        """
-        Sets and changes the fit method of the transformer
-        -------
-        Callable
-        """
+    def base_fit(self, X: np.ndarray, columns: List[int]) -> None:
+        self.X = X
+        self.columns = columns
+        return
         
-        return self.fit
-
-    @fit.setter
-    def fit(self, fit) -> None:
-        if callable(fit):
-            self.fit = fit
-        else:
-            raise ValueError("Invalid argument in fit.setter: fit is not a function")
-        
-    def encode(self, X: np.ndarray, columns: List[int]=None):
+    def encode(self, X: np.ndarray, columns: List[int]=None) -> np.ndarray:
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in encode: Index in parameter columns is out of range")
         X_copy = X
         if columns:
             cols = columns.sort()
             X_rem = keep_cols(X, cols)
+        elif self.columns:
+            cols = self.columns
         else:
             cols = range(len(X))
         self.fit(X_rem)
@@ -80,13 +63,15 @@ class Transformer(object):
                 j+=1
         return X_copy
     
-    def decode(self, X: np.ndarray=None, columns: List[int]=None):
+    def decode(self, X: np.ndarray=None, columns: List[int]=None) -> np.ndarray:
         if columns and not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in decode: Index in parameter columns is out of range")
         X_copy = X
         if columns:
             cols = columns.sort()
             X_rem = keep_cols(X, cols)
+        elif self.columns:
+            cols = self.columns
         else:
             cols = range(len(X))
         X_rem = self.inverse_transform(X_rem)

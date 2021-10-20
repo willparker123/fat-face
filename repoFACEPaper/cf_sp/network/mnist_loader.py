@@ -50,9 +50,9 @@ def load_data_wrapper():
     convenient for use in our implementation of neural networks.
 
     In particular, ``training_data`` is a list containing 50,000
-    2-tuples ``(x, y)``.  ``x`` is a 784-dimensional numpy.ndarray
+    2-tuples ``(x, y)``.  ``x`` is a 784-dimensional np.ndarray
     containing the input image.  ``y`` is a 10-dimensional
-    numpy.ndarray representing the unit vector corresponding to the
+    np.ndarray representing the unit vector corresponding to the
     correct digit for ``x``.
 
     ``validation_data`` and ``test_data`` are lists containing 10,000

@@ -4,7 +4,7 @@ from fatapi.helpers import not_in_range, check_type
 
 class Data():
     """
-    Abstract class for numpy.array dataset and essential column indexes
+    Abstract class for np.ndarray dataset and essential column indexes
     
     Parameters
     ----------

@@ -2,7 +2,7 @@
 from fatapi.model.estimators import Transformer
 from fatapi.data import Data
 from fatapi.model import BlackBox
-from typing import Callable, List
+from typing import Callable, List, Optional
 from fatapi.helpers import not_in_range, keep_cols, check_type
 import numpy as np
 
@@ -22,16 +22,17 @@ class Model(object):
     X_tofit? : List[int]
         List of column indexes for features in data.dataset; if None, all columns in data.dataset
     Y_tofit? : List[int]
-    predict()? : (X: np.ndarray) ->np.ndarray
+        List of column indexes for features in data.dataset; if None, all columns in data.dataset
+    predict()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
         -- Only required if blackbox not supplied
     predict_proba()? : (X: np.ndarray) -> np.ndarray
         Method for getting the probability of the prediction of X
         -- Only required if blackbox not supplied
-    fit()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
+    fit()? : (X: np.ndarray, Y?: np.ndarray) -> None
         Method for fitting model to X, Y
         -- Only required if blackbox not supplied
-    score()? : (X: np.ndarray, Y?: np.ndarray) -> np.ndarray
+    score()? : (X: np.ndarray, Y: np.ndarray) -> np.ndarray
         Method for calculating a score when predicting X and comparing with Y
         -- Only required if blackbox not supplied
     scaler? : fatapi.model.Transformer
@@ -41,20 +42,20 @@ class Model(object):
     
     Methods
     -------
-    get_fitted_data(): () -> (numpy.array, numpy.array?)
+    get_fitted_data(): () -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]
         Returns the dataset the model has been fitted to; tuple of (X) or (X, Y)
-    train(X: np.ndarray, Y: np.ndarray):
+    train() -> (X: np.ndarray, Y: np.ndarray, cols_encode?: List[int], cols_scale?: List[int]) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         Calls self.fit() after scaling/normalising
-    encode(X: np.ndarray, columns: List[int]):
+    encode(): (X: np.ndarray, columns: List[int]) -> np.ndarray
         Fits and transforms the data using encoder
         -- If no encoder, returns X
-    decode(X: np.ndarray, columns: List[int]):
+    decode(): (X: np.ndarray, columns: List[int]) -> np.ndarray
         Inverse_transforms the data using encoder
         -- If no encoder, returns X
-    scale(X: np.ndarray, columns: List[int]):
+    scale(): (X: np.ndarray, columns: List[int]) -> np.ndarray
         Fits and transforms the data using scaler
         -- If no scaler, returns X
-    unscale(X: np.ndarray, columns: List[int]):
+    unscale(): (X: np.ndarray, columns: List[int]) -> np.ndarray
         Inverse_transforms the data using scaler
         -- If no scaler, returns X
     """
@@ -70,11 +71,11 @@ class Model(object):
                 self._score = self.blackbox.score
         else:
             if 'fit' in kwargs:
-                self._fit = check_type(kwargs.get("fit"), "__init__", Callable)
+                self._fit = check_type(kwargs.get("fit"), "__init__", Callable[[np.ndarray, Optional[np.ndarray]], None])
             if 'predict' in kwargs:
-                self._predict = check_type(kwargs.get("predict"), "__init__", Callable)
+                self._predict = check_type(kwargs.get("predict"), "__init__", Callable[[np.ndarray], np.ndarray])
             if 'predict_proba' in kwargs:
-                self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable)
+                self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.ndarray], np.ndarray])
             if 'score' in kwargs:
                 self._score = check_type(kwargs.get("score"), "__init__", Callable)
         data = check_type(data, "__init__", Data)
@@ -133,7 +134,7 @@ class Model(object):
         return d, t
 
     @property
-    def fit(self) -> Callable:
+    def fit(self) -> Callable[[np.ndarray, Optional[np.ndarray]], None]:
         """
         Sets and changes the fit method of the model
         -------
@@ -143,10 +144,10 @@ class Model(object):
 
     @fit.setter
     def fit(self, fit) -> None:
-        self._fit = check_type(fit, "fit.setter", Callable)
+        self._fit = check_type(fit, "fit.setter", Callable[[np.ndarray, Optional[np.ndarray]], None])
         
     @property
-    def predict(self) -> Callable:
+    def predict(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict method of the model
         -------
@@ -156,10 +157,10 @@ class Model(object):
 
     @predict.setter
     def predict(self, predict) -> None:
-        self._predict = check_type(predict, "predict.setter", Callable)
+        self._predict = check_type(predict, "predict.setter", Callable[[np.ndarray], np.ndarray])
         
     @property
-    def predict_proba(self) -> Callable:
+    def predict_proba(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict_proba method of the model
         -------
@@ -169,10 +170,10 @@ class Model(object):
 
     @predict_proba.setter
     def predict_proba(self, predict_proba) -> None:
-        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable)
+        self._predict_proba = check_type(predict_proba, "predict_proba.setter", Callable[[np.ndarray], np.ndarray])
         
     @property
-    def score(self) -> Callable:
+    def score(self) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
         """
         Sets and changes the score method of the model
         -------
@@ -182,7 +183,7 @@ class Model(object):
 
     @score.setter
     def score(self, score) -> None:
-        self._score = check_type(score, "score.setter", Callable)
+        self._score = check_type(score, "score.setter", Callable[[np.ndarray, np.ndarray], np.ndarray])
         
     @property
     def encoder(self) -> Transformer:

@@ -32,7 +32,7 @@ class CEMMethod(ExplainabilityMethod):
     mode? : String
         String specifying which elements of the counterfactual should be gathered - default is "pn" but can be "pp"/"pn"
         -- Default is "pn"
-    autoencoder()? : (X: numpy.array) -> numpy.array
+    autoencoder()? : (X: np.ndarray) -> np.ndarray
         Autoencoder which transforms datapoint X to get a more useful counterfactual result by making X closer to a data manifold
         -- Default returns X
     kappa? : float
@@ -75,25 +75,25 @@ class CEMMethod(ExplainabilityMethod):
        
     Methods
     -------
-    explain() : (X?: numpy.array, Y?: numpy.array, predict()?: Callable) -> numpy.array
+    explain() : (X?: np.ndarray, Y?: np.ndarray, predict()?: Callable) -> np.ndarray
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
         Returns permutations for items of X in shape of X
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
-                                            scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> numpy.array
+                                            scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> np.ndarray
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
-    build_graph() : (X: numpy.array, Y: numpy.array, t_distance?: float, t_density?: float, 
-                                    t_prediction?: float, conditions()?: Callable) -> numpy.array
+    build_graph() : (X: np.ndarray, Y: np.ndarray, t_distance?: float, t_density?: float, 
+                                    t_prediction?: float, conditions()?: Callable) -> np.ndarray
         Builds graph for distances between nodes in the feature space - returns adjacency matrix of weights between [i,j]; 
         i, j are indicies of datapoints in X (rows)
-    get_permutations() : () -> numpy.array
+    get_permutations() : () -> np.ndarray
         Returns the graph which build_graph() produces
     get_explain_targets() : () -> List[float]
         Returns the classifications of X after explain (PP: Y[i] for X[i] / PN: class after X[i]+permutations[i])
-    get_counterfactuals(as_indexes?: bool) : () -> numpy.array
+    get_counterfactuals(as_indexes?: bool) : () -> np.ndarray
         Returns the counterfactuals for the supplied factuals (permutations of X)
         -- Default is as data (not as_indexes)
-    get_counterfactuals_as_data() : () -> numpy.array
+    get_counterfactuals_as_data() : () -> np.ndarray
         Returns the counterfactuals as data in the same form X and Y were supplied as tuple (data, target)
         -- target is the same as get_counterfactuals()
     """

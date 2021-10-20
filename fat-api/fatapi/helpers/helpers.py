@@ -1,6 +1,9 @@
-from typing import Callable
+from typing import Callable, List, TypeVar, Generic, Sequence
+import inspect
 import numpy as np
 import math
+from inspect import signature
+T = TypeVar('T')
 
 def keep_cols(data, cols):
     return data[:, cols]
@@ -25,7 +28,15 @@ def check_type(arg, func, *types):
         if types[i]==Callable:
             vs.append(callable(arg))
         else:
-            vs.append(type(arg)==types[i])
+            v = False
+            try:
+                v = isinstance(arg, types[i])
+            except:
+                try:
+                    vs.append(callable(arg))
+                except:
+                    v = False
+            vs.append(v)
     if sum(vs) >= 1:
         return arg
     else:
