@@ -40,7 +40,7 @@ class FACEMethod(ExplainabilityMethod):
     kernel_type? : str
         String specifying which kernel to use to build weights from data - default is "kde" but can be "kde"/"knn"/"e"/"gs"
         -- Only required if kernel not supplied
-    kernel()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> float
+    kernel()? : (X: numpy.array, weight_function: Callable, **kwargs) -> numpy.array
         Kernel function to build weights using two datapoints
         -- Only required if kernel_type is not supplied or to override kernel function
     n_neighbours? : int
@@ -70,14 +70,14 @@ class FACEMethod(ExplainabilityMethod):
         -- Default is 0.5
     density_estimator?: DensityEstimator
         Density estimator used for KDE and GS kernels; must have fit, score_samples methods
-    shortest_path()? : (X: numpy.array, graph: numpy.array, data: numpy.array)
+    shortest_path()? : (X: numpy.array, start: int, end: int, start_edges: numpy.array) -> float, List[int]
         Shortest path algorithm to find the path between each instance (row) of X using data 
         (datapoints corresponding to indexes [i, j] of graph) and graph (adjacency matrix)
         -- Default is dijkstra
     conditions()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Boolean
         Additional conditions which check for feasible paths between nodes - must return a 
         -- Default is lambda **kwargs: True
-    weight_function()? : (x: float) -> float
+    weight_function()? : (x: numpy.array) -> float
         Weighting function for kernels when processing kernel result
         -- Default is lambda x: -numpy.log(x)
 
@@ -588,7 +588,6 @@ class FACEMethod(ExplainabilityMethod):
             t_radius = check_type(kwargs.get("t_radius"), "explain_FACE", float, int)
             
         predictions = pred_proba_f(X)
-        print(f"PREDICTIONSSSS: {predictions}")
         kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, t_radius, density_estimator, weight_function)
         graph = self.build_graph(X=X, kernel_image=kernel_image, conditions=cs_f)
         self.graph = graph
@@ -635,7 +634,7 @@ class FACEMethod(ExplainabilityMethod):
             dists = []
             paths = []
             for candidate in candidate_targets:
-                dist, path = dijkstra(graph=graph, start=ind, end=candidate, start_edges=start_node_edges)
+                dist, path = sp_f(graph=graph, start=ind, end=candidate, start_edges=start_node_edges)
                 dists.append(dist)
                 paths.append(path)
             zipped_lists = zip(dists, paths)
