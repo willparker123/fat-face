@@ -9,21 +9,25 @@ class Optimiser(object):
     
     Parameters
     ----------
-    distance_function() : (X: np.ndarray, Y: np.npdarray)
-        Calculates distance between X and Y
-        -- Default is Euclidean distance
-    transformation_function() : (X: np.ndarray)
-        Transforms X
-        -- Default is -np.log(X)
+    objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+        (e.g. delta, beta, gamma, c, autoencoder for CEM)
+    optimise() : (objective: Callable[..., np.ndarray], max_iterations: int, initial_learning_rate: Union[float, int], 
+                    decay_function: Callable[[float, int, int], float]) -> np.ndarray
+        Optimises the supplied objective function using a supplied learning rate and optional decay function, 
+        or using those set in the Optimiser object
+    beta: Union[float, int]
+        --Only needed for certain methods (e.g. CEMMethod)
     
     Methods
     -------
-    fit(X: np.ndarray) : np.ndarray
-        Method for fitting density estimator to X
-    score(X: np.ndarray, K?: int) : np.ndarray
-        Method for calculating a score after transforming x and comparing against distances of X
-    score_samples(X: np.ndarray, K?: int) : np.ndarray
-        Method for calculating a score when predicting X and comparing with Y
+    objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+        (e.g. delta, beta, gamma, c, autoencoder for CEM)
+    optimise() : (objective: Callable[..., np.ndarray], max_iterations: int, initial_learning_rate: Union[float, int], 
+                    decay_function: Callable[[float, int, int], float]) -> np.ndarray
+        Optimises the supplied objective function using a supplied learning rate and optional decay function, 
+        or using those set in the Optimiser object
     """
     def __init__(self, **kwargs) -> None:
         if kwargs.get("estimator"):

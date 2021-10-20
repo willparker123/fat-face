@@ -83,16 +83,21 @@ class FACEMethod(ExplainabilityMethod):
 
     Methods
     -------
-    explain() : (X?: np.ndarray, Y?: np.ndarray, factuals?: np.ndarray, factuals_target?: np.ndarray, predict()?: Callable, 
-                    predict_proba()?: Callable, t_distance?: Union[float, int], t_density?: Union[float, int], 
-                                    t_prediction?: Union[float, int]) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]
+    explain() : (X?: np.ndarray, Y?: np.ndarray, factuals?: np.ndarray, factuals_target?: np.ndarray, 
+                    kernel()?: Callable[[np.ndarray, Callable], np.ndarray],
+                    conditions()?: Callable[[np.ndarray, np.ndarray, Union[float, int]], bool],
+                    predict()?: Callable[[np.ndarray], np.ndarray], predict_proba()?: Callable[[np.ndarray], np.ndarray], 
+                    shortest_path()?: Callable[[np.ndarray, int, int, np.ndarray], Tuple[float, List[int]]], 
+                    density_estimator?: DensityEstimator, weight_function()?: Callable[[Union[float, int]], float],
+                    t_distance?: Union[float, int], t_density?: Union[float, int], t_prediction?: Union[float, int],
+                    epsilon?: Union[float, int], n_neighbours?: int, K?: int, t_radius?: Union[float, int]) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
         Returns counterfactual target classes as array
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
                                 scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> np.ndarray
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
-    build_graph() : (X: np.ndarray, kernel_image: np.ndarray, conditions()?: Callable[[np.ndarray, np.ndarray, Union[float, int]], Boolean]) -> np.ndarray
+    build_graph() : (X: np.ndarray, kernel_image: np.ndarray, conditions(): Callable[[np.ndarray, np.ndarray, Union[float, int]], Boolean]) -> np.ndarray
         Builds graph for distances between nodes in the feature space - returns adjacency matrix of weights between [i,j]; 
         i, j are indicies of datapoints in X (rows)
     get_graph() : () -> np.ndarray

@@ -17,13 +17,19 @@ class CEMMethod(ExplainabilityMethod):
     
     Parameters
     ----------
+    data? : fatapi.data.Data
+        Data object containing data and feature columns
+        -- Only required if X and Y are supplied to explain()
+    target? : fatapi.data.Data
+        Data object containing target data and target feature columns
+        -- Only required if X and Y are supplied to explain()
     factuals? : fatapi.data.Data
         Data object containing features of datapoints to be used in ExplainabilityMethod methods
         -- Only required if factuals and factuals_target are supplied to explain()
     factuals_target? : fatapi.data.Data
         Data object containing target features of datapoints to be used in ExplainabilityMethod methods
         -- Only required if factuals and factuals_target are supplied to explain()
-    predict()? : (X: np.ndarray) -> np.ndarray)
+    predict()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
         -- Only required if model not supplied
     model? : fatapi.model.Model
@@ -35,38 +41,38 @@ class CEMMethod(ExplainabilityMethod):
     autoencoder()? : (X: np.ndarray) -> np.ndarray
         Autoencoder which transforms datapoint X to get a more useful counterfactual result by making X closer to a data manifold
         -- Default returns X
-    kappa? : float
+    kappa? : Union[float, int]
         Confidence parameter which controls the seperation between the predicted class of the modified input and tbe
          next-highest-prediction predicted class of said modified input
         -- Default is 1
-    c? : float
+    c? : Union[float, int]
         Regularisation parameter for the loss function
         -- Default is 1
-    beta? : float
+    beta? : Union[float, int]
         Regularisation parameter for the elastic net regulariser
         -- Default is 1
-    gamma? : float
+    gamma? : Union[float, int]
         Regularisation parameter for the reconstruction error of autoencoding the input
         -- Default is 1, 0 if no autoencoder
-    initial_learning_rate? : float
+    initial_learning_rate? : Union[float, int]
         Learning rate for the optimiser for the CEM loss function (initial learning rate if decay_function supplied to optimiser)
         -- Default is 1e-2
-    decay_function? : (initial_learning_rate: float, iteration: int, max_iters: int) -> (learning_rate: float)
+    decay_function? : (initial_learning_rate: float, iteration: int, max_iterations: int, **kwargs) -> (learning_rate: float)
         Function for decaying the learning_rate over iterations of the optimiser
-        -- Default is lambda x, **kwargs: x (Identity)
-    max_iters? : float
+        -- Default is lambda lr, i, m, **kwargs: lr (Identity)
+    max_iterations? : int
         Maximum iterations for the optimiser on the CEM loss function
         -- Default is 1000
     search_c? : bool
         Whether to do a binary search on 'c' to explore a larger spread of the feature space, or not
         -- Default is False
-    search_c_max_iters? : float
+    search_c_max_iterations? : int
         Maximum iterations of a binary search on 'c'
         -- Default is 10
-    search_c_upperbound? : float
+    search_c_upperbound? : Union[float, int]
         Upper bound for the value of 'c' during binary search on 'c'
         -- Default is 1e10
-    search_c_lowerbound? : float
+    search_c_lowerbound? : Union[float, int]
         Lower bound for the value of 'c' during binary search on 'c'
         -- Default is 0
     initial_deltas? : np.ndarray[num_features]
@@ -102,15 +108,15 @@ class CEMMethod(ExplainabilityMethod):
         if not ('factuals' in kwargs and 'factuals_target' in kwargs):
             print("Warning in __init__: factuals and factuals_target not supplied - need to provide factuals and factuals_target to explain()")
         else:
-            self._factuals = check_type(kwargs.get("factuals"), "__init__", np.ndarray)
-            self._factuals_target = check_type(kwargs.get("factuals_target"), "__init__", np.ndarray)
+            self._factuals = check_type(kwargs.get("factuals"), "__init__", Data)
+            self._factuals_target = check_type(kwargs.get("factuals_target"), "__init__", Data)
         if not 'autoencoder' in kwargs:
             print("Warning in __init__: no autoencoder supplied - X will not be put closer to data manifold and results may be inaccurate")
         noAE = True
-        self._autoencoder = lambda x, **kwargs: x
+        self._autoencoder = lambda X, **kwargs: X
         self._mode = "pn"
         self._search_c = False
-        self._search_c_max_iters = 10
+        self._search_c_max_iterations = 10
         self._search_c_upperbound = 1e10
         self._search_c_lowerbound = 0
         self._kappa = 1
@@ -119,14 +125,15 @@ class CEMMethod(ExplainabilityMethod):
         self._gamma = 0
         self._initial_deltas = np.zeros((1, np.shape(self._factuals)[1]))
         self._initial_learning_rate = 1e-2
-        self._decay_function = lambda x, **kwargs : x
-        self._max_iters = 1000
+        self._decay_function = lambda lr, i, m, **kwargs : lr
+        self._max_iterations = 1000
         if 'autoencoder' in kwargs:
-            self._autoencoder = check_type(kwargs.get("autoencoder"), "__init__", Callable)
+            self._autoencoder = check_type(kwargs.get("autoencoder"), "__init__", Callable[[np.ndarray], np.ndarray])
             self._gamma = 1
             noAE = False
         if 'mode' in kwargs:
-            if not (kwargs.get('mode').lower()=="pp" or kwargs.get('mode').lower()=="pn"):
+            m: str = check_type(kwargs.get("mode"), "__init__", str)
+            if not (m.lower()=="pp" or m.lower()=="pn"):
                 raise ValueError(f"Invalid arguments in __init__: mode must be 'pn' or 'pp'")
             else:
                 self._mode = check_type(kwargs.get("mode"), "__init__", str)
@@ -134,22 +141,22 @@ class CEMMethod(ExplainabilityMethod):
             self._search_c = check_type(kwargs.get("search_c"), "__init__", bool)
         if self._search_c:
             self._c = 10
-        if 'search_c_max_iters' in kwargs:
-            if kwargs.get('search_c_max_iters') >= 1:
-                self._search_c_max_iters = check_type(kwargs.get("search_c_max_iters"), "__init__", int)
+        if 'search_c_max_iterations' in kwargs:
+            if kwargs.get('search_c_max_iterations') >= 1:
+                self._search_c_max_iterations = check_type(kwargs.get("search_c_max_iterations"), "__init__", int)
             else:
-                raise ValueError(f"Invalid argument in __init__: search_c_max_iters must be >= 1")
+                raise ValueError(f"Invalid argument in __init__: search_c_max_iterations must be >= 1")
         if 'search_c_upperbound' in kwargs:
             self._search_c_upperbound = check_type(kwargs.get("search_c_upperbound"), "__init__", float, int)
         if 'search_c_lowerbound' in kwargs:
             self._search_c_lowerbound = check_type(kwargs.get("search_c_lowerbound"), "__init__", float, int)
         if self._search_c_lowerbound >= self._search_c_upperbound:
             raise ValueError(f"Invalid argument in __init__: search_c_lowerbound must be less than search_c_upperbound")
-        if 'max_iters' in kwargs:
-            if kwargs.get('max_iters') >= 1:
-                self._max_iters = check_type(kwargs.get("max_iters"), "__init__", int)
+        if 'max_iterations' in kwargs:
+            if kwargs.get('max_iterations') >= 1:
+                self._max_iterations = check_type(kwargs.get("max_iterations"), "__init__", int)
             else:
-                raise ValueError(f"Invalid argument in __init__: max_iters must be >= 1")
+                raise ValueError(f"Invalid argument in __init__: max_iterations must be >= 1")
         if 'kappa' in kwargs:
             if kwargs.get('kappa') >= 0:
                 self._kappa = check_type(kwargs.get("kappa"), "__init__", float, int)
@@ -176,16 +183,15 @@ class CEMMethod(ExplainabilityMethod):
             else:
                 raise ValueError(f"Invalid argument in __init__: initial_learning_rate must be >= 0")
         if 'decay_function' in kwargs:
-            self._decay_function = check_type(kwargs.get("decay_function"), "__init__", Callable)
+            self._decay_function = check_type(kwargs.get("decay_function"), "__init__", Callable[[float, int, int], float])
         if 'initial_deltas' in kwargs:
             self._initial_deltas = check_type(kwargs.get("initial_deltas"), "__init__", np.ndarray)
             if not np.shape(self._initial_deltas[1])==np.shape(self._factuals[1]):
                 raise ValueError(f"Invalid argument in __init__: initial_deltas must be the same shape as features")
-        #optimiser should take func, autoencoder, factuals, factuals_target, decay_function, initial_deltas, beta, max_iters
-        #fistaoptimiser should take above plus beta
         # The Fast Iterative Shrinkage-Thresholding Algorithm [https://www.ceremade.dauphine.fr/~carlier/FISTA] optimiser
         self._optimiser = FISTAOptimiser(objective=self.objective_function, autoencoder=self._autoencoder, predict_proba=self._predict_proba, 
-                                         initial_deltas=self._initial_deltas, max_iters=self._max_iters, beta=self._beta, decay_function=self._decay_function)
+                                         initial_deltas=self._initial_deltas, initial_learning_rate=self._initial_learning_rate, 
+                                         max_iterations=self._max_iterations, beta=self._beta, decay_function=self._decay_function)
         if 'optimiser' in kwargs:
             self._optimiser = check_type(kwargs.get("optimiser"), "__init__", Optimiser)
             self._optimiser.objective = self.objective_function
@@ -195,10 +201,11 @@ class CEMMethod(ExplainabilityMethod):
                 self._optimiser.decay_function = self._decay_function
             self._optimiser.initial_deltas = self._initial_deltas
             self._optimiser.beta = self._beta
-            self._optimiser.max_iters = self._max_iters
+            self._optimiser.initial_learning_rate = self._initial_learning_rate
+            self._optimiser.max_iterations = self._max_iterations
 
     @property
-    def autoencoder(self) -> Callable:
+    def autoencoder(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the autoencoder which transforms X to be closer to the data manifold
         -------
@@ -209,7 +216,7 @@ class CEMMethod(ExplainabilityMethod):
 
     @autoencoder.setter
     def autoencoder(self, autoencoder) -> None:
-        self._autoencoder = check_type(autoencoder, "__init__", Callable)
+        self._autoencoder = check_type(autoencoder, "__init__", Callable[[np.ndarray], np.ndarray])
 
     @property
     def mode(self) -> float:
@@ -311,41 +318,41 @@ class CEMMethod(ExplainabilityMethod):
         self._search_c = check_type(search_c, "__init__", bool)
         
     @property
-    def search_c_max_iters(self):
+    def search_c_max_iterations(self):
         """
         Sets and changes the maximum iterations over the binary search over 'c'
         -------
         Callable
         """
         
-        return self._search_c_max_iters
+        return self._search_c_max_iterations
 
-    @search_c_max_iters.setter
-    def search_c_max_iters(self, search_c_max_iters) -> None:
-        if search_c_max_iters >= 1:
-            self._search_c_max_iters = check_type(search_c_max_iters, "search_c_max_iters.setter", int)
+    @search_c_max_iterations.setter
+    def search_c_max_iterations(self, search_c_max_iterations) -> None:
+        if search_c_max_iterations >= 1:
+            self._search_c_max_iterations = check_type(search_c_max_iterations, "search_c_max_iterations.setter", int)
         else:
-            raise ValueError("Invalid argument in search_c_max_iters.setter: search_c_max_iters must be >= 1")
+            raise ValueError("Invalid argument in search_c_max_iterations.setter: search_c_max_iterations must be >= 1")
 
     @property
-    def max_iters(self):
+    def max_iterations(self):
         """
         Sets and changes the maximum iterations over the optimiser
         -------
         Callable
         """
         
-        return self._max_iters
+        return self._max_iterations
 
-    @max_iters.setter
-    def max_iters(self, max_iters) -> None:
-        if max_iters >= 1:
-            self._max_iters = check_type(max_iters, "max_iters.setter", int)
+    @max_iterations.setter
+    def max_iterations(self, max_iterations) -> None:
+        if max_iterations >= 1:
+            self._max_iterations = check_type(max_iterations, "max_iterations.setter", int)
         else:
-            raise ValueError("Invalid argument in max_iters.setter: max_iters must be >= 1")
+            raise ValueError("Invalid argument in max_iterations.setter: max_iterations must be >= 1")
 
     @property
-    def decay_function(self) -> Callable:
+    def decay_function(self) -> Callable[[float, int, int], float]:
         """
         Sets and changes the decay_function which decays the learning_rate over iterations of the optimiser
         -------
@@ -356,7 +363,7 @@ class CEMMethod(ExplainabilityMethod):
 
     @decay_function.setter
     def decay_function(self, decay_function) -> None:
-        self._decay_function = check_type(decay_function, "__init__", Callable)
+        self._decay_function = check_type(decay_function, "__init__", Callable[[float, int, int], float])
         
     @property
     def search_c_lowerbound(self) -> Callable:
