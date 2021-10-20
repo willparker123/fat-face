@@ -40,7 +40,7 @@ class FACEMethod(ExplainabilityMethod):
     kernel_type? : str
         String specifying which kernel to use to build weights from data - default is "kde" but can be "kde"/"knn"/"e"/"gs"
         -- Only required if kernel not supplied
-    kernel()? : (X: numpy.array, weight_function: Callable, **kwargs) -> numpy.array
+    kernel()? : (X: numpy.array, weight_function: Callable[Union[float, int], float], **kwargs) -> numpy.array
         Kernel function to build weights using two datapoints
         -- Only required if kernel_type is not supplied or to override kernel function
     n_neighbours? : int
@@ -51,21 +51,21 @@ class FACEMethod(ExplainabilityMethod):
         Number of neighbours to take into account when using gs kernel
         -- Only required if kernel_type is "gs"
         -- Default is 10
-    t_radius? : float
+    t_radius? : Union[float, int]
         Number of neighbours to take into account when using gs kernel
         -- Only required if kernel_type is "gs"
         -- Default is 1.10
-    t_distance? : float
+    t_distance? : Union[float, int]
         Threshold of distance between nodes to constitute a non-zero weight
         -- Default is 10000
-    epsilon? : float
+    epsilon? : Union[float, int]
         Value of epsilon to set when using E kernel
         -- Default is 0.75
-    t_density? : float
+    t_density? : Union[float, int]
         Threshold of density value between nodes to constitute a non-zero weight when building feasible paths (number of neighbours when kernel_type=="knn")
         -- Only required if kernel_type is "kde"
         -- Default is 0.001 
-    t_prediction? : float [0-1]
+    t_prediction? : Union[float, int] [0-1]
         Threshold of prediction value from predict function to warrant 
         -- Default is 0.5
     density_estimator?: DensityEstimator
@@ -74,10 +74,10 @@ class FACEMethod(ExplainabilityMethod):
         Shortest path algorithm to find the path between each instance (row) of X using data 
         (datapoints corresponding to indexes [i, j] of graph) and graph (adjacency matrix)
         -- Default is dijkstra
-    conditions()? : (X_1: numpy.array, X_2: numpy.array, Y_1?: numpy.array, Y_2?: numpy.array) -> Boolean
+    conditions()? : (X_1: numpy.array, X_2: numpy.array, weight: Union[float, int]) -> Boolean
         Additional conditions which check for feasible paths between nodes - must return a 
         -- Default is lambda **kwargs: True
-    weight_function()? : (x: numpy.array) -> float
+    weight_function()? : (x: Union[float, int]) -> float
         Weighting function for kernels when processing kernel result
         -- Default is lambda x: -numpy.log(x)
 
@@ -91,7 +91,7 @@ class FACEMethod(ExplainabilityMethod):
                                             scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> numpy.array
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
     build_graph() : (X: numpy.array, Y: numpy.array, t_distance?: float, t_density?: float, 
-                                    t_prediction?: float, conditions()?: Callable) -> numpy.array
+                                    t_prediction?: float, conditions()?: Callable[[numpy.array, numpy.array, Union[float, int]], Boolean]) -> numpy.array
         Builds graph for distances between nodes in the feature space - returns adjacency matrix of weights between [i,j]; 
         i, j are indicies of datapoints in X (rows)
     get_graph() : () -> numpy.array
