@@ -32,6 +32,9 @@ class CEMMethod(ExplainabilityMethod):
     predict()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
         -- Only required if model not supplied
+    predict_proba()? : (X: np.ndarray) -> np.ndarray
+        Method for getting the probability of X being the predicted class label
+        -- Only required if model not supplied
     model? : fatapi.model.Model
         Model object used to get prediction values and class predictions
         -- Only required if predict not supplied
@@ -189,21 +192,21 @@ class CEMMethod(ExplainabilityMethod):
             if not np.shape(self._initial_deltas[1])==np.shape(self._factuals[1]):
                 raise ValueError(f"Invalid argument in __init__: initial_deltas must be the same shape as features")
         # The Fast Iterative Shrinkage-Thresholding Algorithm [https://www.ceremade.dauphine.fr/~carlier/FISTA] optimiser
-        self._optimiser = FISTAOptimiser(objective=self.objective_function, autoencoder=self._autoencoder, predict_proba=self._predict_proba, 
+        self._optimiser = FISTAOptimiser(objective=self.objective_function, autoencoder=self._autoencoder, predict=self._predict, predict_proba=self._predict_proba, 
                                          initial_deltas=self._initial_deltas, initial_learning_rate=self._initial_learning_rate, 
                                          max_iterations=self._max_iterations, beta=self._beta, decay_function=self._decay_function)
         if 'optimiser' in kwargs:
             self._optimiser = check_type(kwargs.get("optimiser"), "__init__", Optimiser)
             self._optimiser.objective = self.objective_function
             self._optimiser.autoencoder = self._autoencoder
+            self._optimiser.predict = self._predict
             self._optimiser.predict_proba = self._predict_proba
-            if not hasattr(self._optimiser, 'decay_function'):
-                self._optimiser.decay_function = self._decay_function
             self._optimiser.initial_deltas = self._initial_deltas
-            self._optimiser.beta = self._beta
+            self._optimiser.decay_function = self._decay_function
             self._optimiser.initial_learning_rate = self._initial_learning_rate
             self._optimiser.max_iterations = self._max_iterations
-
+            self._optimiser.beta = self._beta
+            
     @property
     def autoencoder(self) -> Callable[[np.ndarray], np.ndarray]:
         """

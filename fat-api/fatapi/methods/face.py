@@ -74,7 +74,7 @@ class FACEMethod(ExplainabilityMethod):
         Shortest path algorithm to find the path between each instance (row) of X using data 
         (datapoints corresponding to indexes [i, j] of graph) and graph (adjacency matrix)
         -- Default is dijkstra
-    conditions()? : (X_1: np.ndarray, X_2: np.ndarray, weight: Union[float, int]) -> Boolean
+    conditions()? : (X_1: np.ndarray, X_2: np.ndarray, weight: Union[float, int]) -> bool
         Additional conditions which check for feasible paths between nodes - must return a 
         -- Default is lambda **kwargs: True
     weight_function()? : (x: Union[float, int]) -> float
@@ -97,7 +97,7 @@ class FACEMethod(ExplainabilityMethod):
     preprocess_factuals() : (factuals?: fatapi.data.Data, factuals_target?: fatapi.data.Data, model?: fatapi.model.Model, 
                                 scaler?: fatapi.model.estimators.Transformer, encoder?: fatapi.model.estimators.Transformer) -> np.ndarray
         Uses encoder and scaler from black-box-model or argument to preprocess data as needed.
-    build_graph() : (X: np.ndarray, kernel_image: np.ndarray, conditions(): Callable[[np.ndarray, np.ndarray, Union[float, int]], Boolean]) -> np.ndarray
+    build_graph() : (X: np.ndarray, kernel_image: np.ndarray, conditions(): Callable[[np.ndarray, np.ndarray, Union[float, int]], bool]) -> np.ndarray
         Builds graph for distances between nodes in the feature space - returns adjacency matrix of weights between [i,j]; 
         i, j are indicies of datapoints in X (rows)
     get_graph() : () -> np.ndarray

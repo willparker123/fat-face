@@ -1,29 +1,64 @@
 
 from typing import Callable
 from fatapi.helpers import check_type
+from fatapi.optimisers import Optimiser
 import numpy as np
 
-class FISTAOptimiser(object):
+class FISTAOptimiser(Optimiser):
     """
-    Abstract class used for a gradient ascent / descent optimiser (e.g. in CEMMethod)
+    The Fast Iterative Shrinkage-Thresholding Algorithm gradient descent / ascent optimiser - useful for large-scale dense matrix data
+    
+    Note: Initialised variables will be overwritten by Method defaults and supplied Method args - 
+    call setters before explain() in Method to override the arguments for the optimiser in the Method constructor
+    
     
     Parameters
     ----------
-    distance_function() : (X: np.ndarray, Y: np.npdarray)
-        Calculates distance between X and Y
-        -- Default is Euclidean distance
-    transformation_function() : (X: np.ndarray)
-        Transforms X
-        -- Default is -np.log(X)
-    
+    objective() : (X: np.ndarray, Y: np.npdarray, predict()?: Callable[[np.ndarray], np.ndarray], predict:_proba()?: Callable[[np.ndarray],
+                    np.ndarray], **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+        (e.g. delta, beta, gamma, c, autoencoder for CEM)
+    optimise()? : (objective?: Callable[..., np.ndarray], max_iterations?: int, initial_learning_rate?: float, 
+                    decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
+        Optimises the supplied objective function using a supplied learning rate and optional decay function, 
+        or using those set in the Optimiser object
+    predict()? : (X: np.ndarray) -> np.ndarray
+        Method for predicting the class label of X
+        -- Only required if needed in optimise() or objective()
+    predict_proba()? : (X: np.ndarray) -> np.ndarray
+        Method for getting the probability of X being the predicted class label
+        -- Only required if needed in optimise() or objective()
+    initial_learning_rate?: float
+        Initial learning rate / step size for learning
+        -- Default is 1e-2
+    decay_function()?: (learning_rate: float, iteration: int, max_iterations: int, **kwargs) -> float
+        Function which decays the learning rate over the iterations of learning
+        -- Default is lambda lr, i, m, **kwargs = lr (Identity on initial_learning_rate [lr])
+    max_iterations?: int
+        Maximum iterations to complete an optimisation cycle over - stopping condition for learning
+        -- Default is 1000
+    stop_condition()?: (iteration?: int, max_iterations?: int, **kwargs) -> bool 
+        Extra stopping conditions for the optimiser / learning cycle
+        -- Default is lambda *args, **kwargs = False [Identity]
+    autoencoder?: (X: np.ndarray) -> np.ndarray
+        Autoencoder which transforms datapoint X to get a more useful counterfactual result by making X closer to a data manifold
+        -- Only needed for certain methods (e.g. CEMMethod)
+    beta?: Union[float, int]
+        Parameter for regularisation / optimisation in CEM
+        -- Only needed for certain methods (e.g. CEMMethod)
+    initial_deltas? : np.ndarray[num_features]
+        Initial value for the permutation of the factual (delta)
+        -- Only needed for certain methods (e.g. CEMMethod)  
+            self._optimiser.autoencoder = self._autoencoder
     Methods
     -------
-    fit(X: np.ndarray) : np.ndarray
-        Method for fitting density estimator to X
-    score(X: np.ndarray, K?: int) : np.ndarray
-        Method for calculating a score after transforming x and comparing against distances of X
-    score_samples(X: np.ndarray, K?: int) : np.ndarray
-        Method for calculating a score when predicting X and comparing with Y
+    objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+        (e.g. delta, beta, gamma, c, autoencoder for CEM)
+    optimise() : (objective: Callable[..., np.ndarray], max_iterations: int, initial_learning_rate: Union[float, int], 
+                    decay_function: Callable[[float, int, int], float]) -> np.ndarray
+        Optimises the supplied objective function using a supplied learning rate and optional decay function, 
+        or using those set in the Optimiser object
     """
     def __init__(self, **kwargs) -> None:
         if kwargs.get("estimator"):

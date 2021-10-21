@@ -5,20 +5,41 @@ import numpy as np
 
 class Optimiser(object):
     """
-    Abstract class used for a gradient ascent / descent optimiser (e.g. in CEMMethod)
+    Abstract class used for a gradient ascent / descent optimiser (e.g. in CEMMethod).
+    
+    Note: Initialised variables will be overwritten by Method defaults and supplied Method args - 
+    call setters before explain() in Method to override the arguments for the optimiser in the Method constructor
+    
     
     Parameters
     ----------
-    objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
+    objective() : (X: np.ndarray, Y: np.npdarray, predict()?: Callable[[np.ndarray], np.ndarray], predict:_proba()?: Callable[[np.ndarray],
+                    np.ndarray], **kwargs) -> np.ndarray
         The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
         (e.g. delta, beta, gamma, c, autoencoder for CEM)
-    optimise() : (objective: Callable[..., np.ndarray], max_iterations: int, initial_learning_rate: Union[float, int], 
-                    decay_function: Callable[[float, int, int], float]) -> np.ndarray
+    optimise()? : (objective?: Callable[..., np.ndarray], max_iterations?: int, initial_learning_rate?: float, 
+                    decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
         Optimises the supplied objective function using a supplied learning rate and optional decay function, 
         or using those set in the Optimiser object
-    beta: Union[float, int]
-        --Only needed for certain methods (e.g. CEMMethod)
-    
+    predict()? : (X: np.ndarray) -> np.ndarray
+        Method for predicting the class label of X
+        -- Only required if needed in optimise() or objective()
+    predict_proba()? : (X: np.ndarray) -> np.ndarray
+        Method for getting the probability of X being the predicted class label
+        -- Only required if needed in optimise() or objective()
+    initial_learning_rate?: float
+        Initial learning rate / step size for learning
+        -- Default is 1e-2
+    decay_function()?: (learning_rate: float, iteration: int, max_iterations: int, **kwargs) -> float
+        Function which decays the learning rate over the iterations of learning
+        -- Default is lambda lr, i, m, **kwargs = lr (Identity on initial_learning_rate [lr])
+    max_iterations?: int
+        Maximum iterations to complete an optimisation cycle over - stopping condition for learning
+        -- Default is 1000
+    stop_condition()?: (iteration?: int, max_iterations?: int, **kwargs) -> bool 
+        Extra stopping conditions for the optimiser / learning cycle
+        -- Default is lambda *args, **kwargs = False [Identity]
+
     Methods
     -------
     objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
