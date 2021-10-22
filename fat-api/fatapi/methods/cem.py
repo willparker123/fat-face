@@ -41,7 +41,7 @@ class CEMMethod(ExplainabilityMethod):
     mode? : String
         String specifying which elements of the counterfactual should be gathered - default is "pn" but can be "pp"/"pn"
         -- Default is "pn"
-    autoencoder()? : (X: np.ndarray) -> np.ndarray
+    autoencoder?: (X: np.ndarray, **kwargs) -> np.ndarray
         Autoencoder which transforms datapoint X to get a more useful counterfactual result by making X closer to a data manifold
         -- Default returns X
     kappa? : Union[float, int]
@@ -198,21 +198,20 @@ class CEMMethod(ExplainabilityMethod):
         if 'optimiser' in kwargs:
             self._optimiser = check_type(kwargs.get("optimiser"), "__init__", Optimiser)
             self._optimiser.objective = self.objective_function
-            self._optimiser.autoencoder = self._autoencoder
             self._optimiser.predict = self._predict
             self._optimiser.predict_proba = self._predict_proba
-            self._optimiser.initial_deltas = self._initial_deltas
             self._optimiser.decay_function = self._decay_function
             self._optimiser.initial_learning_rate = self._initial_learning_rate
             self._optimiser.max_iterations = self._max_iterations
+            self._optimiser.autoencoder = self._autoencoder
             self._optimiser.beta = self._beta
+            self._optimiser.initial_deltas = self._initial_deltas
             
     @property
     def autoencoder(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the autoencoder which transforms X to be closer to the data manifold
-        -------
-        Callable
+
         """
         
         return self._autoencoder
@@ -222,11 +221,10 @@ class CEMMethod(ExplainabilityMethod):
         self._autoencoder = check_type(autoencoder, "__init__", Callable[[np.ndarray], np.ndarray])
 
     @property
-    def mode(self) -> float:
+    def mode(self) -> str:
         """
         Sets and changes the mode of the CEM algorithm - pertient positives or pertient negatives
-        -------
-        Callable
+
         """
         
         return self._mode
@@ -239,11 +237,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in kernel.setter: mode is not 'pp' or 'pn'") 
 
     @property
-    def kappa(self):
+    def kappa(self) -> Union[float, int]:
         """
         Sets and changes the kappa variable of the CEM algorithm
-        -------
-        Callable
+
         """
         
         return self._kappa
@@ -256,11 +253,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in kappa.setter: kappa must be >= 0")
 
     @property
-    def c(self):
+    def c(self) -> Union[float, int]:
         """
         Sets and changes the c variable of the CEM algorithm
-        -------
-        Callable
+
         """
         
         return self._c
@@ -273,11 +269,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in c.setter: c must be >= 0")
 
     @property
-    def beta(self):
+    def beta(self) -> Union[float, int]:
         """
         Sets and changes the beta variable of the CEM algorithm
-        -------
-        Callable
+
         """
         
         return self._beta
@@ -290,11 +285,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in beta.setter: beta must be >= 0")
 
     @property
-    def gamma(self):
+    def gamma(self) -> Union[float, int]:
         """
         Sets and changes the gamma variable of the CEM algorithm
-        -------
-        Callable
+
         """
         
         return self._gamma
@@ -307,11 +301,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in gamma.setter: gamma must be >= 0")
 
     @property
-    def search_c(self) -> Callable:
+    def search_c(self) -> bool:
         """
         Sets and changes whether the 'c' regularisation parameter gets found via binary search
-        -------
-        Callable
+
         """
         
         return self._search_c
@@ -321,11 +314,10 @@ class CEMMethod(ExplainabilityMethod):
         self._search_c = check_type(search_c, "__init__", bool)
         
     @property
-    def search_c_max_iterations(self):
+    def search_c_max_iterations(self) -> int:
         """
         Sets and changes the maximum iterations over the binary search over 'c'
-        -------
-        Callable
+
         """
         
         return self._search_c_max_iterations
@@ -338,11 +330,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in search_c_max_iterations.setter: search_c_max_iterations must be >= 1")
 
     @property
-    def max_iterations(self):
+    def max_iterations(self) -> int:
         """
         Sets and changes the maximum iterations over the optimiser
-        -------
-        Callable
+
         """
         
         return self._max_iterations
@@ -358,8 +349,7 @@ class CEMMethod(ExplainabilityMethod):
     def decay_function(self) -> Callable[[float, int, int], float]:
         """
         Sets and changes the decay_function which decays the learning_rate over iterations of the optimiser
-        -------
-        Callable
+
         """
         
         return self._decay_function
@@ -369,11 +359,10 @@ class CEMMethod(ExplainabilityMethod):
         self._decay_function = check_type(decay_function, "__init__", Callable[[float, int, int], float])
         
     @property
-    def search_c_lowerbound(self) -> Callable:
+    def search_c_lowerbound(self) -> Union[float, int]:
         """
         Sets and changes the lower bound of the 'c' parameter for search
-        -------
-        Callable
+
         """
         
         return self._search_c_lowerbound
@@ -386,11 +375,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in search_c_lowerbound.setter: search_c_lowerbound must be < search_c_upperbound")
         
     @property
-    def search_c_upperbound(self) -> Callable:
+    def search_c_upperbound(self) -> Union[float, int]:
         """
         Sets and changes the upper bound of the 'c' parameter for search
-        -------
-        Callable
+
         """
         
         return self._search_c_upperbound
@@ -403,11 +391,10 @@ class CEMMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in search_c_upperbound.setter: search_c_upperbound must be > search_c_lowerbound")
     
     @property
-    def initial_learning_rate(self):
+    def initial_learning_rate(self) -> Union[float, int]:
         """
         Sets and changes the learning rate of the optimiser
-        -------
-        Callable
+
         """
         
         return self._initial_learning_rate
@@ -423,8 +410,7 @@ class CEMMethod(ExplainabilityMethod):
     def initial_initial_deltas(self):
         """
         Sets and changes the initial values of delta for the CEM algorithm
-        -------
-        Callable
+
         """
         
         return self._initial_initial_deltas
@@ -603,7 +589,7 @@ class CEMMethod(ExplainabilityMethod):
         if not (facts.shape[0]==facts_target.shape[0]):
             raise ValueError("Invalid argument in explain_FACE: different number of points in factuals and factuals_target")
         target_classes = []
-        if kwargs.get("target_classes"):
+        if 'target_classes' in kwargs:
             target_classes = check_type(kwargs.get("target_classes"), np.ndarray, "explain_FACE")
             if not target_classes.shape == facts_target.shape:
                 raise ValueError("Invalid argument in explain_face: target_classes must have the same shape as factuals_target")

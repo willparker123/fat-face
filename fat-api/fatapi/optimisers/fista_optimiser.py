@@ -40,7 +40,7 @@ class FISTAOptimiser(Optimiser):
     stop_condition()?: (iteration?: int, max_iterations?: int, **kwargs) -> bool 
         Extra stopping conditions for the optimiser / learning cycle
         -- Default is lambda *args, **kwargs = False [Identity]
-    autoencoder?: (X: np.ndarray) -> np.ndarray
+    autoencoder?: (X: np.ndarray, **kwargs) -> np.ndarray
         Autoencoder which transforms datapoint X to get a more useful counterfactual result by making X closer to a data manifold
         -- Only needed for certain methods (e.g. CEMMethod)
     beta?: Union[float, int]
@@ -115,8 +115,7 @@ class FISTAOptimiser(Optimiser):
     def distance_function(self) -> Callable:
         """
         Sets and changes the distance_function method of the density estimator
-        -------
-        Callable
+
         """
         
         return self._distance_function
@@ -129,8 +128,7 @@ class FISTAOptimiser(Optimiser):
     def transformation_function(self) -> Callable:
         """
         Sets and changes the transformation_function method of the density estimator
-        -------
-        Callable
+
         """
         
         return self._transformation_function
@@ -143,8 +141,7 @@ class FISTAOptimiser(Optimiser):
     def fit(self) -> Callable:
         """
         Sets and changes the fit method of the density estimator
-        -------
-        Callable
+
         """
         return self._fit
 
@@ -156,8 +153,7 @@ class FISTAOptimiser(Optimiser):
     def score(self) -> Callable:
         """
         Sets and changes the score method of the density estimator
-        -------
-        Callable
+
         """
         return self._score
 
@@ -169,8 +165,7 @@ class FISTAOptimiser(Optimiser):
     def score_samples(self) -> Callable:
         """
         Sets and changes the score_samples method of the density estimator
-        -------
-        Callable
+
         """
         return self._score_samples
 

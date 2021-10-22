@@ -62,7 +62,7 @@ class Model(object):
     def __init__(self, data: Data, target: Data=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
         if not ('blackbox' in kwargs) or ('fit' in kwargs and 'predict' in kwargs and 'predict_proba' in kwargs):
             raise ValueError(f"Missing arguments in __init__: [{'' if 'blackbox' in kwargs else 'blackbox'}, {'' if 'fit' in kwargs else 'fit'}, {'' if 'predict' in kwargs else 'predict'}, {'' if 'predict_proba' in kwargs else 'predict_proba'}, {'' if 'score' in kwargs else 'score'}]")
-        if kwargs.get("blackbox"):
+        if 'blackbox' in kwargs:
             self.blackbox = check_type(kwargs.get("blackbox"), "__init__", BlackBox)
             self._fit = self.blackbox.fit
             self._predict = self.blackbox.predict
@@ -137,8 +137,7 @@ class Model(object):
     def fit(self) -> Callable[[np.ndarray, Optional[np.ndarray]], None]:
         """
         Sets and changes the fit method of the model
-        -------
-        Callable
+
         """
         return self._fit
 
@@ -150,8 +149,7 @@ class Model(object):
     def predict(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict method of the model
-        -------
-        Callable
+
         """
         return self._predict
 
@@ -163,8 +161,7 @@ class Model(object):
     def predict_proba(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict_proba method of the model
-        -------
-        Callable
+
         """
         return self._predict_proba
 
@@ -176,8 +173,7 @@ class Model(object):
     def score(self) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
         """
         Sets and changes the score method of the model
-        -------
-        Callable
+
         """
         return self._score
 
@@ -203,8 +199,7 @@ class Model(object):
     def scaler(self) -> Transformer:
         """
         Sets and changes the scaler method of the model
-        -------
-        Callable
+
         """
         
         return self._scaler

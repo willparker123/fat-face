@@ -102,6 +102,8 @@ class FACEMethod(ExplainabilityMethod):
         i, j are indicies of datapoints in X (rows)
     get_graph() : () -> np.ndarray
         Returns the graph which build_graph() produces
+    get_start_node_edges() : () -> np.ndarray
+        Returns the edges of the graph from a start node that is not in the dataset which explain() produces
     get_explain_distances() : () -> List[float]
         Returns the distances to the counterfactuals from the starting datapoint
     get_explain_candidates() : () -> np.ndarray
@@ -194,8 +196,7 @@ class FACEMethod(ExplainabilityMethod):
     def shortest_path(self) -> Callable[[np.ndarray, int, int, np.ndarray], Tuple[float, List[int]]]:
         """
         Sets and changes the shortest_path algorithm
-        -------
-        Callable
+
         """
         
         return self._shortest_path
@@ -208,8 +209,7 @@ class FACEMethod(ExplainabilityMethod):
     def density_estimator(self) -> DensityEstimator:
         """
         Sets and changes the density_estimator attribute
-        -------
-        Callable
+
         """
         
         return self._density_estimator
@@ -222,8 +222,7 @@ class FACEMethod(ExplainabilityMethod):
     def conditions(self) -> Callable[[np.ndarray, np.ndarray, Union[float, int]], bool]:
         """
         Sets and changes the extra conditions feasible paths must pass
-        -------
-        Callable
+
         """
         
         return self._conditions
@@ -236,8 +235,7 @@ class FACEMethod(ExplainabilityMethod):
     def weight_function(self) -> Callable[[Union[float, int]], float]:
         """
         Sets and changes the extra weight_function feasible paths must pass
-        -------
-        Callable
+
         """
         
         return self._weight_function
@@ -250,8 +248,7 @@ class FACEMethod(ExplainabilityMethod):
     def kernel(self) -> Callable[[np.ndarray, Callable], np.ndarray]:
         """
         Sets and changes the kernel algorithm
-        -------
-        Callable
+
         """
         
         return self._kernel
@@ -264,8 +261,7 @@ class FACEMethod(ExplainabilityMethod):
     def t_prediction(self) -> Union[float, int]:
         """
         Sets and changes the prediction threshold
-        -------
-        Callable
+
         """
         
         return self._t_prediction
@@ -281,8 +277,7 @@ class FACEMethod(ExplainabilityMethod):
     def t_distance(self) -> Union[float, int]:
         """
         Sets and changes the distance threshold
-        -------
-        Callable
+
         """
         
         return self._t_distance
@@ -295,8 +290,7 @@ class FACEMethod(ExplainabilityMethod):
     def t_density(self) -> Union[float, int]:
         """
         Sets and changes the density threshold
-        -------
-        Callable
+
         """
         
         return self._t_density
@@ -309,8 +303,7 @@ class FACEMethod(ExplainabilityMethod):
     def t_radius(self) -> Union[float, int]:
         """
         Sets and changes the radius threshold
-        -------
-        Callable
+
         """
         
         return self._t_radius
@@ -323,8 +316,7 @@ class FACEMethod(ExplainabilityMethod):
     def epsilon(self) -> Union[float, int]:
         """
         Sets and changes the epsilon threshold
-        -------
-        Callable
+
         """
         
         return self._epsilon
@@ -337,8 +329,7 @@ class FACEMethod(ExplainabilityMethod):
     def K(self) -> int:
         """
         Sets and changes K (GS kernel neighbours)
-        -------
-        Callable
+
         """
         
         return self._K
@@ -351,8 +342,7 @@ class FACEMethod(ExplainabilityMethod):
     def n_neighbours(self) -> int:
         """
         Sets and changes n_neighbours (KNN kernel neighbours)
-        -------
-        Callable
+
         """
         
         return self._n_neighbours
@@ -365,8 +355,7 @@ class FACEMethod(ExplainabilityMethod):
     def kernel_type(self) -> str:
         """
         Sets and changes the kernel_type
-        -------
-        Callable
+
         """
         
         return self._kernel_type
@@ -546,7 +535,7 @@ class FACEMethod(ExplainabilityMethod):
         if not (facts.shape[0]==facts_target.shape[0]):
             raise ValueError("Invalid argument in explain_FACE: different number of points in factuals and factuals_target")
         target_classes = []
-        if kwargs.get("target_classes"):
+        if 'target_classes' in kwargs:
             target_classes = check_type(kwargs.get("target_classes"), "explain_FACE", np.ndarray)
             if not target_classes.shape == facts_target.shape:
                 raise ValueError("Invalid argument in explain_face: target_classes must have the same shape as factuals_target")
@@ -631,6 +620,7 @@ class FACEMethod(ExplainabilityMethod):
             if not ((X == fac).all(1).any() for fac in factuals):
                 print("Warning in explain_FACE: factuals are not a subset of X")
                 start_node_edges = self.get_kernel_image(fac, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, density_estimator, weight_function, X.shape[0])
+            self.start_node_edges = start_node_edges
             t0 = np.where(predictions_target_class >= t_pred)[0]
             if len(target_classes)>0:
                 t1 = np.where(Y == target_class)[0]
@@ -671,6 +661,9 @@ class FACEMethod(ExplainabilityMethod):
 
     def get_graph(self):
         return self.graph
+    
+    def get_start_node_edges(self):
+        return self.start_node_edges
         
     def get_explain_candidates(self):
         return self.candidate_targets

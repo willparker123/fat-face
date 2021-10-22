@@ -1,5 +1,5 @@
 
-from typing import Callable
+from typing import Callable, Optional, Union
 from fatapi.helpers import check_type
 import numpy as np
 
@@ -17,7 +17,7 @@ class Optimiser(object):
                     np.ndarray], **kwargs) -> np.ndarray
         The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
         (e.g. delta, beta, gamma, c, autoencoder for CEM)
-    optimise()? : (objective?: Callable[..., np.ndarray], max_iterations?: int, initial_learning_rate?: float, 
+    optimise_function()? : (objective?: Callable[..., np.ndarray], max_iterations?: int, initial_learning_rate?: float, 
                     decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
         Optimises the supplied objective function using a supplied learning rate and optional decay function, 
         or using those set in the Optimiser object
@@ -50,120 +50,161 @@ class Optimiser(object):
         Optimises the supplied objective function using a supplied learning rate and optional decay function, 
         or using those set in the Optimiser object
     """
-    def __init__(self, **kwargs) -> None:
-        if kwargs.get("estimator"):
-            self.estimator = kwargs.get("estimator")
-            try:
-                if callable(getattr(self.estimator, "fit")):
-                    pass
-            except:
-                raise ValueError("Invalid argument in __init__: estimator does not have function fit")
-            try:
-                if callable(getattr(self.estimator, "score_samples")):
-                    pass
-            except:
-                raise ValueError("Invalid argument in __init__: estimator does not have function score_samples")
-            self._fit = self.estimator.fit
-            self._score_samples = self.estimator.score_samples
-            self._score = None
-        else:
-            self._fit = self.base_fit
-            self._score = self.base_score
-            self._score_samples = self.base_score_samples
-
-        if kwargs.get("distance_function"): 
-            self._distance_function = check_type(kwargs.get("distance_function"), "__init__", Callable)
-        else:
-            self._distance_function = lambda x, y: np.linalg.norm(x.reshape(-1, 1) - y.reshape(-1, 1))
+    def __init__(self, objective: Callable[[Callable[..., np.ndarray], int, float, Callable[[float, int, int], float]], np.ndarray], **kwargs):
+        self._optimise = self.base_optimise
+        if 'optimise' in kwargs:
+            self._optimise = check_type(kwargs.get("optimise"), "__init__", Callable[[Callable, int, Optional[float], Optional[Callable]], np.ndarray])
+        self._objective = objective
+        if 'predict' in kwargs:
+            self._predict = check_type(type(kwargs.get("predict")), "__init__", Callable[[np.ndarray], np.ndarray])
+        if 'predict_proba' in kwargs:
+            self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.ndarray], np.ndarray])
+        self._decay_function = lambda lr, i, m, **kwargs: lr
+        if 'decay_function' in kwargs:
+            self._decay_function = check_type(kwargs.get("decay_function"), "__init__", Callable[[float, int, int], float])
+        self._max_iterations = 1000
+        if 'max_iterations' in kwargs:
+            if kwargs.get('max_iterations') >= 1:
+                self._max_iterations = check_type(kwargs.get("max_iterations"), "__init__", int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: max_iterations must be >= 1")
+        self._initial_learning_rate = 1e-2
+        if 'initial_learning_rate' in kwargs:
+            if kwargs.get('initial_learning_rate') >= 0:
+                self._initial_learning_rate = check_type(kwargs.get("initial_learning_rate"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: initial_learning_rate must be >= 0")
+        self._stop_condition = lambda *args, **kwargs: False
+        if 'stop_condition' in kwargs:
+            self._stop_condition = check_type(kwargs.get("stop_condition"), "__init__", Callable[..., bool])
+        
+    def base_optimise(self, objective: Callable[..., np.ndarray]=None, max_iterations: int=None, initial_learning_rate: float=None, 
+                    decay_function: Callable[[float, int, int], float]=None, **kwargs) -> np.ndarray:
+        obj_f = self.objective
+        max_iter = self.max_iterations
+        init_lr = self.initial_learning_rate
+        decay_f = self.decay_function
+        if objective is not None:
+            obj_f = objective
+        if max_iterations is not None:
+            max_iter = max_iterations
+        if initial_learning_rate is not None:
+            init_lr = initial_learning_rate
+        if decay_function is not None:
+            decay_f = decay_function
+        lr = init_lr
+        for i in range(max_iter):
             
-        if kwargs.get("transformation_function"): 
-            self._transformation_function = check_type(kwargs.get("transformation_function"), "__init__", Callable)
-        else:
-            self._transformation_function = lambda x: -np.log(x)
-        
-    def base_fit(self, X):
-        self.X = X
-        self.n_samples = X.shape[0]   
+            lr = decay_f(lr, i, max_iter, **kwargs)
     
-    def base_score(self, X: np.ndarray, K: int=10):
-        distances = np.zeros(self.n_samples)
-        for idx in range(self.n_samples):
-            distances[idx] = self.distance_function(X, self.X[idx, :])
-        return self.transformation_function(np.sort(distances)[K])
+    @property
+    def optimise(self) -> Callable[[Callable[..., np.ndarray], int, float, Callable[[float, int, int], float]], np.ndarray]:
+        """
+        Sets and changes the optimise function used for optimisation - stepping through max_iterations using the objective() function
+
+        """
+        
+        return self._optimise
+
+    @optimise.setter
+    def optimise(self, optimise) -> None:
+        self._optimise = check_type(optimise, "optimise.setter", Callable[[Callable[..., np.ndarray], int, float, Callable[[float, int, int], float]], np.ndarray])
     
-    def base_score_samples(self, X: np.ndarray, K: int=10):
-        n_samples_test = X.shape[0]
-        if n_samples_test == 1:
-            return self.score_samples_single(X)
+    @property
+    def objective(self) -> Callable[[Callable, int, Optional[float], Optional[Callable]], np.ndarray]:
+        """
+        Sets and changes the objective function to optimise
+
+        """
+        
+        return self._objective
+
+    @objective.setter
+    def objective(self, objective) -> None:
+        self._objective = check_type(objective, "objective.setter", Callable[[Callable, int, Optional[float], Optional[Callable]], np.ndarray])
+    
+    @property
+    def predict(self) -> Callable[[np.ndarray], np.ndarray]:
+        """
+        Sets and changes the predict function used in objective / optimise if one is required but not supplied
+
+        """
+        
+        return self._objective
+
+    @predict.setter
+    def predict(self, predict) -> None:
+        self.predict = check_type(predict, "predict.setter", Callable[[np.ndarray], np.ndarray])
+    
+    @property
+    def predict_proba(self) -> Callable[[np.ndarray], np.ndarray]:
+        """
+        Sets and changes the predict_proba function used in objective() / optimise() if one is required but not supplied
+
+        """
+        
+        return self._objective
+
+    @predict_proba.setter
+    def predict_proba(self, predict_proba) -> None:
+        self.predict_proba = check_type(predict_proba, "predict_proba.setter", Callable[[np.ndarray], np.ndarray])
+    
+    @property
+    def decay_function(self) -> Callable[[float, int, int], float]:
+        """
+        Sets and changes the decay_function function used to change the learning_rate in optimise()
+
+        """
+        
+        return self._objective
+
+    @decay_function.setter
+    def decay_function(self, decay_function) -> None:
+        self.decay_function = check_type(decay_function, "decay_function.setter", Callable[[float, int, int], float])
+    
+    @property
+    def max_iterations(self) -> int:
+        """
+        Sets and changes the maximum iterations over the optimiser
+
+        """
+        
+        return self._max_iterations
+
+    @max_iterations.setter
+    def max_iterations(self, max_iterations) -> None:
+        if max_iterations >= 1:
+            self._max_iterations = check_type(max_iterations, "max_iterations.setter", int)
         else:
-            scores = np.zeros((n_samples_test, 1))
-            for idx in range(n_samples_test):
-                scores[idx] = self.score(X[idx, :], K)
-            return scores
+            raise ValueError("Invalid argument in max_iterations.setter: max_iterations must be >= 1")
 
     @property
-    def distance_function(self) -> Callable:
+    def initial_learning_rate(self) -> Union[float, int]:
         """
-        Sets and changes the distance_function method of the density estimator
-        -------
-        Callable
+        Sets and changes the learning rate of the optimiser
+
         """
         
-        return self._distance_function
+        return self._initial_learning_rate
 
-    @distance_function.setter
-    def distance_function(self, distance_function) -> None:
-        self._distance_function = check_type(distance_function, "distance_function.setter", Callable)
+    @initial_learning_rate.setter
+    def initial_learning_rate(self, initial_learning_rate) -> None:
+        if initial_learning_rate > 0:
+            self._initial_learning_rate = check_type(initial_learning_rate, "initial_learning_rate.setter", float, int)
+        else:
+            raise ValueError("Invalid argument in initial_learning_rate.setter: initial_learning_rate must be > 0")
+    
+    @property
+    def stop_condition(self) -> Callable[..., bool]:
+        """
+        Sets and changes the stop_condition function used as an alternative check to max_iterations; if max_iterations OR stop_condition
+        Set max_iterations to MAX_INT if you want this to be the only condition
+
+        """
         
-    @property
-    def transformation_function(self) -> Callable:
-        """
-        Sets and changes the transformation_function method of the density estimator
-        -------
-        Callable
-        """
-        
-        return self._transformation_function
+        return self._objective
 
-    @transformation_function.setter
-    def transformation_function(self, transformation_function) -> None:
-        self._transformation_function = check_type(transformation_function, "transformation_function.setter", Callable)
-
-    @property
-    def fit(self) -> Callable:
-        """
-        Sets and changes the fit method of the density estimator
-        -------
-        Callable
-        """
-        return self._fit
-
-    @fit.setter
-    def fit(self, fit) -> None:
-        self._fit = check_type(fit, "fit.setter", Callable)
-
-    @property
-    def score(self) -> Callable:
-        """
-        Sets and changes the score method of the density estimator
-        -------
-        Callable
-        """
-        return self._score
-
-    @score.setter
-    def score(self, score) -> None:
-        self._score = check_type(score, "score.setter", Callable)
-
-    @property
-    def score_samples(self) -> Callable:
-        """
-        Sets and changes the score_samples method of the density estimator
-        -------
-        Callable
-        """
-        return self._score_samples
-
-    @score_samples.setter
-    def score_samples(self, score_samples) -> None:
-        self._score_samples = check_type(score_samples, "score_samples.setter", Callable)
+    @stop_condition.setter
+    def stop_condition(self, stop_condition) -> None:
+        self.stop_condition = check_type(stop_condition, "stop_condition.setter", Callable[..., bool])
+    

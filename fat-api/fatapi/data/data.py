@@ -68,8 +68,7 @@ class Data():
     def encoded(self) -> bool:
         """
         Sets and changes encoded
-        -------
-        Callable
+
         """
         
         return self._encoded
@@ -82,8 +81,7 @@ class Data():
     def categoricals(self) -> List[int]:
         """
         Sets and changes categoricals
-        -------
-        Callable
+
         """
         
         return self._categoricals
@@ -99,8 +97,7 @@ class Data():
     def numericals(self) -> List[int]:
         """
         Sets and changes numericals
-        -------
-        Callable
+
         """
         
         return self._numericals

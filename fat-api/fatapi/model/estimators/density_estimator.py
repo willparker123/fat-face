@@ -46,12 +46,12 @@ class DensityEstimator(object):
             self._score = self.base_score
             self._score_samples = self.base_score_samples
 
-        if kwargs.get("distance_function"): 
+        if 'distance_function' in kwargs: 
             self._distance_function = check_type(kwargs.get("distance_function"), "__init__", Callable[[np.ndarray, np.ndarray], float])
         else:
             self._distance_function = lambda x, y: np.linalg.norm(x.reshape(-1, 1) - y.reshape(-1, 1))
             
-        if kwargs.get("transformation_function"): 
+        if 'transformation_function' in kwargs: 
             self._transformation_function = check_type(kwargs.get("transformation_function"), "__init__", Callable[[np.ndarray], np.ndarray])
         else:
             self._transformation_function = lambda x: -np.log(x)
@@ -81,8 +81,7 @@ class DensityEstimator(object):
     def distance_function(self) -> Callable[[np.ndarray, np.ndarray], float]:
         """
         Sets and changes the distance_function method of the density estimator
-        -------
-        Callable
+
         """
         
         return self._distance_function
@@ -95,8 +94,7 @@ class DensityEstimator(object):
     def transformation_function(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the transformation_function method of the density estimator
-        -------
-        Callable
+
         """
         
         return self._transformation_function
@@ -109,8 +107,7 @@ class DensityEstimator(object):
     def fit(self) -> Callable[[np.ndarray], None]:
         """
         Sets and changes the fit method of the density estimator
-        -------
-        Callable
+
         """
         return self._fit
 
@@ -122,8 +119,7 @@ class DensityEstimator(object):
     def score(self) -> Callable[[np.ndarray, Optional[int]], np.ndarray]:
         """
         Sets and changes the score method of the density estimator
-        -------
-        Callable
+
         """
         return self._score
 
@@ -135,8 +131,7 @@ class DensityEstimator(object):
     def score_samples(self) -> Callable[[np.ndarray, Optional[int]], np.ndarray]:
         """
         Sets and changes the score_samples method of the density estimator
-        -------
-        Callable
+
         """
         return self._score_samples
 

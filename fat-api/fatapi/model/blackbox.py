@@ -47,8 +47,7 @@ class BlackBox(object):
     def fit(self) -> Callable[[np.ndarray, Optional[np.ndarray]], None]:
         """
         Sets and changes the fit method of the model
-        -------
-        Callable
+
         """
         return self._fit
 
@@ -60,8 +59,7 @@ class BlackBox(object):
     def predict(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict method of the model
-        -------
-        Callable
+
         """
         
         return self._predict
@@ -74,8 +72,7 @@ class BlackBox(object):
     def predict_proba(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict_proba method of the model
-        -------
-        Callable
+
         """
 
         return self._predict_proba
@@ -88,8 +85,7 @@ class BlackBox(object):
     def score(self) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
         """
         Sets and changes the score method of the model
-        -------
-        Callable
+
         """
         return self._score
 

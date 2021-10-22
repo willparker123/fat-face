@@ -50,7 +50,7 @@ class ExplainabilityMethod(object):
             self._predict = self._model.predict
             self._predict_proba = self._model.predict_proba
         if 'predict' in kwargs:
-            self._predict = check_type(kwargs.get("predict"), "__init__", Callable[[np.ndarray], np.ndarray])
+            self._predict = check_type(type(kwargs.get("predict")), "__init__", Callable[[np.ndarray], np.ndarray])
         if 'predict_proba' in kwargs:
             self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.ndarray], float])
         self._explain = lambda **kwargs: kwargs
@@ -80,8 +80,7 @@ class ExplainabilityMethod(object):
     def data(self) -> Data:
         """
         Sets and changes the data attribute
-        -------
-        Callable
+
         """
         
         return self._data
@@ -94,8 +93,7 @@ class ExplainabilityMethod(object):
     def target(self) -> Data:
         """
         Sets and changes the target attribute
-        -------
-        Callable
+
         """
         
         return self._target
@@ -108,8 +106,7 @@ class ExplainabilityMethod(object):
     def predict(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict method of the explainability method
-        -------
-        Callable
+
         """
         
         return self._predict
@@ -122,8 +119,7 @@ class ExplainabilityMethod(object):
     def predict_proba(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the predict_proba method of the explainability method
-        -------
-        Callable
+
         """
         
         return self._predict_proba
@@ -136,8 +132,7 @@ class ExplainabilityMethod(object):
     def model(self) -> Model:
         """
         Sets and changes the model attribute of the explainability method
-        -------
-        Callable
+
         """
         
         return self._model
@@ -150,8 +145,7 @@ class ExplainabilityMethod(object):
     def factuals(self) -> Data:
         """
         Sets and changes the default factuals the explainability method applies to
-        -------
-        Callable
+
         """
         
         return self._factuals
@@ -164,8 +158,7 @@ class ExplainabilityMethod(object):
     def factuals_target(self) -> Data:
         """
         Sets and changes the default factuals_target the explainability method applies to
-        -------
-        Callable
+
         """
         
         return self._factuals_target
