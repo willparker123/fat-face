@@ -217,17 +217,19 @@ class Model(object):
                 cols = columns.sort()
                 X_rem = keep_cols(X, cols)
             else:
-                cols = range(len(X))
+                cols = range(X.shape[1])
+                X_rem = X
             self.encoder.fit(X_rem)
-            X_rem = self.encoder.transform(X_rem)
+            X_rem = np.array(self.encoder.transform(X_rem).toarray())
             j=0
-            for i in range(len(X)):
+            for i in range(X.shape[1]):
+    
                 if i in cols:
                     X_copy[:, i] = X_rem[:, j]
                     j+=1
             return X_copy
         else:
-            return X
+            raise ValueError(f"Invalid call to encode: encoder is required")
     
     def decode(self, X: np.ndarray=None, columns: List[int]=None):
         if columns and not_in_range(X.shape[1], columns):
@@ -238,16 +240,16 @@ class Model(object):
                 cols = columns.sort()
                 X_rem = keep_cols(X, cols)
             else:
-                cols = range(len(X))
-            X_rem = self.encoder.inverse_transform(X_rem)
+                cols = range(X.shape[1])
+            X_rem = np.array(self.encoder.inverse_transform(X_rem).toarray())
             j=0
-            for i in range(len(X)):
+            for i in range(X.shape[1]):
                 if i in cols:
                     X_copy[:, i] = X_rem[:, j]
                     j+=1
             return X_copy
         else:
-            return X
+            raise ValueError(f"Invalid call to decode: encoder is required")
     
     def scale(self, X: np.ndarray, columns: List[int]=None):
         if not_in_range(X.shape[1], columns):
@@ -258,17 +260,17 @@ class Model(object):
                 cols = columns.sort()
                 X_rem = keep_cols(X, cols)
             else:
-                cols = range(len(X))
+                cols = range(X.shape[1])
             self.scaler.fit(X_rem)
-            X_rem = self.scaler.transform(X_rem)
+            X_rem = np.array(self.scaler.transform(X_rem).toarray())
             j=0
-            for i in range(len(X)):
+            for i in range(X.shape[1]):
                 if i in cols:
                     X_copy[:, i] = X_rem[:, j]
                     j+=1
             return X_copy
         else:
-            return X
+            raise ValueError(f"Invalid call to scale: scaler is required")
     
     def unscale(self, X: np.ndarray=None, columns: List[int]=None):
         if columns and not_in_range(X.shape[1], columns):
@@ -279,16 +281,16 @@ class Model(object):
                 cols = columns.sort()
                 X_rem = keep_cols(X, cols)
             else:
-                cols = range(len(X))
-            X_rem = self.scaler.inverse_transform(X_rem)
+                cols = range(X.shape[1])
+            X_rem = np.array(self.scaler.inverse_transform(X_rem).toarray())
             j=0
-            for i in range(len(X)):
+            for i in range(X.shape[1]):
                 if i in cols:
                     X_copy[:, i] = X_rem[:, j]
                     j+=1
             return X_copy
         else:
-            return X
+            raise ValueError(f"Invalid call to unscale: scaler is required")
     
     def train(self, X: np.ndarray=[], Y: np.ndarray=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
         if len(Y)>0 and len(X)<1:

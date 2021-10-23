@@ -108,6 +108,7 @@ class CEMMethod(ExplainabilityMethod):
     """
     def __init__(self, *args, **kwargs) -> None:
         super(CEMMethod, self).__init__(*args, **kwargs)
+        self.objective_function = self.fista_objective_function
         if not ('factuals' in kwargs and 'factuals_target' in kwargs):
             print("Warning in __init__: factuals and factuals_target not supplied - need to provide factuals and factuals_target to explain()")
         else:
@@ -206,7 +207,36 @@ class CEMMethod(ExplainabilityMethod):
             self._optimiser.autoencoder = self._autoencoder
             self._optimiser.beta = self._beta
             self._optimiser.initial_deltas = self._initial_deltas
-            
+        self._explain = self.explain_CEM
+
+    #TODO
+    def cem_objective_function(self, value: np.ndarray, **kwargs):
+        if not ('x' in kwargs and 'y' in kwargs and 'autoencoder' in kwargs and 'predict_proba' in kwargs and 'gamma' in kwargs and 'kappa' in kwargs):
+            raise ValueError(f"Missing arguments in cem_objective_function: {'' if 'x' in kwargs else 'x'} {'' if 'y' in kwargs else 'y'} {'' if 'autoencoder' in kwargs else 'autoencoder'} {'' if 'predict_proba' in kwargs else 'predict_proba'} {'' if 'gamma' in kwargs else 'gamma'} {'' if 'kappa' in kwargs else 'kappa'}")
+        else:
+            x = check_type(kwargs.get("x"), "cem_objective_function", np.ndarray)
+            y = check_type(kwargs.get("y"), "cem_objective_function", int)
+            autoencoder = check_type(kwargs.get("autoencoder"), "cem_objective_function", Callable[[np.ndarray],np.ndarray])
+            predict_proba = check_type(kwargs.get("predict_proba"), "cem_objective_function", Callable[[np.ndarray],np.ndarray])
+            gamma = check_type(kwargs.get("gamma"), "cem_objective_function", int, float)
+            kappa = check_type(kwargs.get("kappa"), "cem_objective_function", int, float)
+            if self.mode == "pn":
+                preds = predict_proba(np.add(x, value))
+                pred_0 = preds[y]
+                pred_1 = np.amax(preds, axis=0)
+                if np.argmax(preds, axis=0) == y:
+                    pred_1 = np.partition(preds, -2)[-2]
+            else:
+                preds = predict_proba(value)
+                pred_0 = np.amax(preds, axis=0)
+                pred_1 = preds[y]
+                if np.argmax(preds, axis=0) == y:
+                    pred_1 = np.partition(preds, -2)[-2]
+            pred_diff = pred_0 - pred_1
+            max_term = max(pred_diff, -kappa)
+            l2_term = np.linalg.norm(value)**2
+        return
+    
     @property
     def autoencoder(self) -> Callable[[np.ndarray], np.ndarray]:
         """
@@ -421,155 +451,8 @@ class CEMMethod(ExplainabilityMethod):
         if not np.shape(initial_initial_deltas)[1] == np.shape(self._factuals)[1]:
             raise ValueError("Invalid argument in initial_initial_deltas.setter: initial_initial_deltas must have same number of features as factuals")
     
-    def kernel_KDE(self, X: np.ndarray, t_density: float, t_distance: float, density_estimator: DensityEstimator, weight_function: Callable, samples=None):
-        density_estimator.fit(X)
-        n_samples = X.shape[0]
-        length = n_samples
-        if samples:
-            length = samples
-        g = np.zeros([n_samples, length], dtype=float)
-        for i in range(n_samples):
-            for j in range(i):
-                X_1=X[i, :]
-                X_2=X[j, :]
-                v0 = X_1.reshape(-1, 1)
-                v1 = X_2.reshape(-1, 1)
-                dist = np.linalg.norm(v0 - v1)
-                if dist <= t_distance:
-                    midpoint = (v0 + v1)/2
-                    density = density_estimator.score_samples(midpoint.reshape(1, -1))
-                    density_X_1 = density_estimator.score_samples(X_1.reshape(1, -1))
-                    if np.exp(density_X_1) >= t_density:
-                        g[i,j] = weight_function(np.exp(density)) * dist
-                    else:
-                        g[i,j] = 0
-                else:
-                    g[i,j] = 0
-        g = g + g.T - np.diag(np.diag(g))
-        return g
-        
-    def kernel_GS(self, X: np.ndarray, t_density: float, t_distance: float, K: int, radius_limit: float, density_estimator:  DensityEstimator, weight_function: Callable, samples=None):
-        density_estimator.fit(X)
-        n_samples = X.shape[0]
-        length = n_samples
-        if samples:
-            length = samples
-        g = np.zeros([n_samples, length], dtype=float)
-        for i in range(n_samples):
-            for j in range(i):
-                X_1=X[i, :]
-                X_2=X[j, :]
-                v0 = X_1.reshape(-1, 1)
-                v1 = X_2.reshape(-1, 1)
-                dist = np.linalg.norm(v0 - v1)
-                if dist <= t_distance:
-                    midpoint = (v0 + v1)/2
-                    density = density_estimator.score_samples(midpoint.reshape(1, -1), K)
-                    gs_score = density_estimator.score_samples(X_1.reshape(1, -1), K+1)
-                    if gs_score >= radius_limit and density >= t_density:
-                        g[i,j] = weight_function(sigmoid(density)) * dist
-                    else:
-                        g[i,j] = 0
-                else:
-                    g[i,j] = 0
-        g = g + g.T - np.diag(np.diag(g))
-        return g
-
-    def kernel_KNN(self, X: np.ndarray, n_neighbours: int, weight_function: Callable, samples=None):
-        n_samples = X.shape[0]
-        length = n_samples
-        if samples:
-            length = samples
-        volume_sphere = get_volume_of_sphere(X.shape[1])
-        const = (n_neighbours / (n_samples * volume_sphere))**(1/X.shape[1])
-        g = np.zeros((n_samples, length))
-        for i in range(n_samples):
-            v0 = X[i, :].reshape(-1, 1)
-            counter = 0
-            for j in range(length):
-                v1 = X[j, :].reshape(-1, 1)
-                g[i, j] = np.linalg.norm(v0 - v1)
-            t = np.argsort(g[i, :])[(1+counter+n_neighbours):]
-            mask = np.ix_(t)
-            g[i, mask] = 0
-        for i in range(n_samples):
-            v0 = X[i, :].reshape(-1, 1)
-            for j in range(length):
-                v1 = X[j, :].reshape(-1, 1)
-                if g[i, j] != 0:
-                    current_value = g[i, j]
-                    g[i, j] = current_value * weight_function(const / (current_value**n_samples))
-        return g
-        
-    def kernel_E(self, X: np.ndarray, t_distance: float, epsilon: float, samples=None):
-        n_samples = X.shape[0]
-        length = n_samples
-        if samples:
-            length = samples
-        g = np.zeros((n_samples, length))
-        for i in range(n_samples):
-            v0 = X[i, :].reshape(-1, 1)
-            for j in range(i):
-                v1 = X[j, :].reshape(-1, 1)
-                dist = np.linalg.norm(v0 - v1)
-                if dist <= epsilon and dist <= t_distance:
-                    g[i, j] = epsilon
-        g = g + g.T - np.diag(np.diag(g))
-        return g
-
-    def check_edge(self, **kwargs):
-        if not ('weight' in kwargs and 'X_1' in kwargs and 'X_2' in kwargs and len(kwargs.get("X_1"))>0 and len(kwargs.get("X_2"))>0):
-            raise ValueError(f"Missing arguments in check_edge: {'' if 'X_1' in kwargs else 'X_1'} {'' if 'X_2' in kwargs else 'X_2'} {'' if 'weight' in kwargs else 'weight'} {'' if 'conditions' in kwargs else 'conditions'}")
-        X_1 = check_type(kwargs.get("X_1"), np.ndarray, "check_edge")
-        X_2 = check_type(kwargs.get("X_2"), np.ndarray, "check_edge")
-        weight = check_type(kwargs.get("weight"), float, "check_edge")
-        conditions = check_type(kwargs.get("conditions"), Callable, "check_edge")
-        if conditions(X_1=X_1, X_2=X_2, weight=weight):
-            return True
-        else:
-            return False
-
-    def get_kernel_image(self, X: np.ndarray, kernel, t_prediction: float, t_density: float, t_distance: float, epsilon: float, n_neighbours: int, K: int, radius_limit: float, density_estimator: DensityEstimator, weight_function: Callable, samples=None):
-        if self.kernel_type.lower()=="kde":
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, density_estimator=density_estimator, weight_function=weight_function, samples=samples)
-        elif self.kernel_type.lower()=="knn":
-            temp = kernel(X=X, n_neighbours=n_neighbours, weight_function=weight_function, samples=samples)
-        elif self.kernel_type.lower()=="e":
-            temp = kernel(X=X, t_distance=t_distance, epsilon=epsilon, samples=samples)
-        elif self.kernel_type.lower()=="gs":
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, K=K, radius_limit=radius_limit, density_estimator=density_estimator, weight_function=weight_function, samples=samples)
-        else:
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, epsilon=epsilon, t_prediction=t_prediction, K=K, weight_function=weight_function, samples=samples)
-        return temp
-
-    def build_graph(self, **kwargs):
-        if not ('conditions' in kwargs and 'X' in kwargs and 'kernel_image' in kwargs):
-            raise ValueError(f"Missing arguments in build_graph: {'' if 'X' in kwargs else 'X'} {'' if 'kernel_image' in kwargs else 'kernel_image'} {'' if 'conditions' in kwargs else 'conditions'}")
-        if 'X' in kwargs:
-            if len(kwargs.get("X"))>0:
-                X = check_type(kwargs.get("X"), np.ndarray, "build_graph")
-            else:
-                raise ValueError("Invalid argument in build_graph: X is empty")
-        if 'kernel_image' in kwargs:
-            if len(kwargs.get("kernel_image"))>0:
-                kernel_image = check_type(kwargs.get("kernel_image"), np.ndarray, "build_graph")
-            else:
-                raise ValueError("Invalid argument in build_graph: kernel_image is empty")
-        if 'conditions' in kwargs:
-            conditions = check_type(kwargs.get("conditions"), Callable, "build_graph")
-        n_samples = X.shape[0]
-        g = np.zeros([n_samples, n_samples], dtype=float)
-        for i in range(n_samples):
-            for j in range(i):
-                if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=float(kernel_image[i, j]), conditions=conditions):
-                    g[i, j] = kernel_image[i, j]
-                else:
-                    g[i, j] = 0
-        g = g + g.T - np.diag(np.diag(g))
-        self.graph = g
-        return g
-
-    def explain_FACE(self, X: np.ndarray, Y: np.ndarray, factuals: np.ndarray, factuals_target: np.ndarray, **kwargs) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    #TODO
+    def explain_CEM(self, X: np.ndarray, Y: np.ndarray, factuals: np.ndarray, factuals_target: np.ndarray, **kwargs) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         if not ((len(X)>0 and len(Y)>0) or (self.data and self.target)):
             raise ValueError("Invalid arguments in explain_FACE: (self.data and self.target) or (X and Y) needed")
         if len(X)>0 and not len(Y)>0:
@@ -714,24 +597,3 @@ class CEMMethod(ExplainabilityMethod):
 
     def get_graph(self):
         return self.graph
-        
-    def get_explain_candidates(self):
-        return self.candidate_targets
-        
-    def get_explain_distances(self):
-        return self.distances_best
-        
-    def get_explain_paths(self):
-        return self.paths_best
-        
-    def get_counterfactuals(self, as_indexes=False):
-        if as_indexes:
-            return self.counterfactual_indexes
-        else:
-            return self.counterfactual_targets
-
-    def get_counterfactuals_as_data(self):
-        return self.counterfactuals, self.counterfactual_targets
-
-    def __str__(self):
-        return f"Factuals: {self.factuals}, Factual Targets: {self.factuals_target}, Kernel Type: {self.kernel_type}, K-Neighbours: {self.n_neighbours}, Epsilon: {self.epsilon}, Distance Threshold: {self.t_distance}, Density Threshold: {self.t_density}, Prediction Threshold: {self.t_prediction}"

@@ -90,7 +90,7 @@ class FACEMethod(ExplainabilityMethod):
                     shortest_path()?: Callable[[np.ndarray, int, int, np.ndarray], Tuple[float, List[int]]], 
                     density_estimator?: DensityEstimator, weight_function()?: Callable[[Union[float, int]], float],
                     t_distance?: Union[float, int], t_density?: Union[float, int], t_prediction?: Union[float, int],
-                    epsilon?: Union[float, int], n_neighbours?: int, K?: int, t_radius?: Union[float, int]) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]
+                    epsilon?: Union[float, int], n_neighbours?: int, K?: int, t_radius?: Union[float, int]) -> np.ndarray
         Generates counterfactual datapoints from X and Y using predict function or model predict function or argument predict function
         Returns counterfactual target classes as array
         -- Uses factuals and factuals_target from preprocess_factuals if no X and Y given
@@ -586,10 +586,9 @@ class FACEMethod(ExplainabilityMethod):
         kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, t_radius, density_estimator, weight_function)
         graph = self.build_graph(X=X, kernel_image=kernel_image, conditions=cs_f)
         self.graph = graph
-        #if not ((X == fac).all(1).any() for fac in factuals):
-        #        print("Warning in explain_FACE: factuals are not a subset of X")
-        #if not ((Y == fac).all(1).any() for fac in factuals_target):
-        #    raise ValueError("Invalid argument in explain_FACE: factuals_target are not a subset of Y")
+        if not ((X == fac).all(1).any() for fac in factuals):
+                print("Warning in explain_FACE: factuals are not a subset of X")
+
         classes = np.unique(Y)
         count = 0
         # 2D - List of List[int]
@@ -608,8 +607,6 @@ class FACEMethod(ExplainabilityMethod):
                 ind = -(count+1)
             else:
                 ind = np.where((X == fac).all(axis=1))[0][0]
-            #if (factuals_target[count]==Y[ind]):
-            #    raise ValueError(f"Invalid class for factuals_target[{count}]: same class as Y[{ind}]")
             if len(target_classes)>0:
                 target_class = target_classes[count]
                 predictions_target_class = predictions[:, target_class]
@@ -645,7 +642,7 @@ class FACEMethod(ExplainabilityMethod):
             paths_all_best.append(paths_[0])
             counterfactual_indexes.append(paths_[0][1])
             counterfactuals.append(X[paths_[0][1]])
-            counterfactual_targets.append(Y[paths_[0][1]])
+            counterfactual_targets.append(Y[paths_[0][1]][0])
             count += 1
 
         self.graph = graph

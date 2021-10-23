@@ -13,14 +13,13 @@ class Optimiser(object):
     
     Parameters
     ----------
-    objective() : (X: np.ndarray, Y: np.npdarray, predict()?: Callable[[np.ndarray], np.ndarray], predict:_proba()?: Callable[[np.ndarray],
-                    np.ndarray], **kwargs) -> np.ndarray
-        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+    objective() : (value: np.ndarray, **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve, taking in at least one argument 'value'.
+        Accepts any other arguments that may be required as **kwargs
         (e.g. delta, beta, gamma, c, autoencoder for CEM)
-    optimise_function()? : (objective?: Callable[..., np.ndarray], max_iterations?: int, initial_learning_rate?: float, 
-                    decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
-        Optimises the supplied objective function using a supplied learning rate and optional decay function, 
-        or using those set in the Optimiser object
+    step_function()? : (initial_value: np.ndarray, objective: Callable[..., np.ndarray], prev_loss: np.ndarray, learning_rate: float, iteration: int, 
+                        max_iterations: int, decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
+        The function used at each timestep (until max_iterations or stop_condition) that is used for learning
     predict()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
         -- Only required if needed in optimise() or objective()
@@ -42,18 +41,19 @@ class Optimiser(object):
 
     Methods
     -------
-    objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
-        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+    objective() : (value: np.ndarray, **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve, taking in at least one argument 'value'.
+        Accepts any other arguments that may be required as **kwargs
         (e.g. delta, beta, gamma, c, autoencoder for CEM)
     optimise() : (objective: Callable[..., np.ndarray], max_iterations: int, initial_learning_rate: Union[float, int], 
                     decay_function: Callable[[float, int, int], float]) -> np.ndarray
         Optimises the supplied objective function using a supplied learning rate and optional decay function, 
         or using those set in the Optimiser object
     """
-    def __init__(self, objective: Callable[[Callable[..., np.ndarray], int, float, Callable[[float, int, int], float]], np.ndarray], **kwargs):
-        self._optimise = self.base_optimise
-        if 'optimise' in kwargs:
-            self._optimise = check_type(kwargs.get("optimise"), "__init__", Callable[[Callable, int, Optional[float], Optional[Callable]], np.ndarray])
+    def __init__(self, objective: Callable[[np.ndarray], np.ndarray], **kwargs):
+        self._step_function = lambda d, obj_f, prev_loss, lr, i, max_iter, decay_f, *args, **kwargs: np.subtract(d, np.array(d.shape()).fill(lr*(obj_f(d, **kwargs)-prev_loss)))
+        if 'step_function' in kwargs:
+            self._step_function = check_type(kwargs.get("step_function"), "__init__", Callable[[np.ndarray, Callable[..., np.ndarray], float, float, int, int, Callable[[float, int, int], float]], np.ndarray])
         self._objective = objective
         if 'predict' in kwargs:
             self._predict = check_type(type(kwargs.get("predict")), "__init__", Callable[[np.ndarray], np.ndarray])
@@ -78,8 +78,8 @@ class Optimiser(object):
         if 'stop_condition' in kwargs:
             self._stop_condition = check_type(kwargs.get("stop_condition"), "__init__", Callable[..., bool])
         
-    def base_optimise(self, objective: Callable[..., np.ndarray]=None, max_iterations: int=None, initial_learning_rate: float=None, 
-                    decay_function: Callable[[float, int, int], float]=None, **kwargs) -> np.ndarray:
+    def optimise(self, initial_value: np.ndarray, objective: Callable[..., np.ndarray]=None, max_iterations: int=None, 
+                 initial_learning_rate: float=None, decay_function: Callable[[float, int, int], float]=None, **kwargs) -> np.ndarray:
         obj_f = self.objective
         max_iter = self.max_iterations
         init_lr = self.initial_learning_rate
@@ -93,25 +93,29 @@ class Optimiser(object):
         if decay_function is not None:
             decay_f = decay_function
         lr = init_lr
+        d = initial_value
+        prev_loss = obj_f(value=d, **kwargs)
         for i in range(max_iter):
-            
+            d = self.step_function(initial_value=d, objective=obj_f, prev_loss=prev_loss, learning_rate=lr, iteration=i, max_iterations=max_iter, decay_function=decay_f, **kwargs)
             lr = decay_f(lr, i, max_iter, **kwargs)
+            if self.stop_condition(initial_value=d, objective=obj_f, learning_rate=lr, iteration=i, max_iterations=max_iter, **kwargs):
+                break
     
     @property
-    def optimise(self) -> Callable[[Callable[..., np.ndarray], int, float, Callable[[float, int, int], float]], np.ndarray]:
+    def step_function(self) -> Callable[[np.ndarray, Callable[..., np.ndarray], float, float, int, int, Callable[[float, int, int], float]], np.ndarray]:
         """
-        Sets and changes the optimise function used for optimisation - stepping through max_iterations using the objective() function
+        Sets and changes the step_function function used for optimisation - altering the value using learning_rate, objective and any other params
 
         """
         
         return self._optimise
 
-    @optimise.setter
-    def optimise(self, optimise) -> None:
-        self._optimise = check_type(optimise, "optimise.setter", Callable[[Callable[..., np.ndarray], int, float, Callable[[float, int, int], float]], np.ndarray])
+    @step_function.setter
+    def step_function(self, step_function) -> None:
+        self._step_function = check_type(step_function, "step_function.setter", Callable[[np.ndarray, Callable[..., np.ndarray], float, float, int, int, Callable[[float, int, int], float]], np.ndarray])
     
     @property
-    def objective(self) -> Callable[[Callable, int, Optional[float], Optional[Callable]], np.ndarray]:
+    def objective(self) -> Callable[[np.ndarray], np.ndarray]:
         """
         Sets and changes the objective function to optimise
 
@@ -121,7 +125,7 @@ class Optimiser(object):
 
     @objective.setter
     def objective(self, objective) -> None:
-        self._objective = check_type(objective, "objective.setter", Callable[[Callable, int, Optional[float], Optional[Callable]], np.ndarray])
+        self._objective = check_type(objective, "objective.setter", Callable[[np.ndarray], np.ndarray])
     
     @property
     def predict(self) -> Callable[[np.ndarray], np.ndarray]:

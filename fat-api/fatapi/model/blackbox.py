@@ -11,6 +11,7 @@ class BlackBox(object):
     Parameters
     ----------
     classifier : attr(predict, predict_proba, fit, score)
+        Object which has the methods above used as a BlackBox in Models and Methods
     
     Methods
     -------

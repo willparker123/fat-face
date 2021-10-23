@@ -9,10 +9,12 @@ class DensityEstimator(object):
     
     Parameters
     ----------
-    distance_function() : (X: np.ndarray, Y: np.npdarray) -> float
+    estimator? : attr(fit, score_samples)
+        Object which has the methods above - methods which use DensityEstimator will call these
+    distance_function()? : (X: np.ndarray, Y: np.npdarray) -> float
         Calculates distance between X and Y
         -- Default is Euclidean distance
-    transformation_function() : (X: np.ndarray) -> np.ndarray
+    transformation_function()? : (X: np.ndarray) -> np.ndarray
         Transforms X
         -- Default is -np.log(X)
     
@@ -40,7 +42,6 @@ class DensityEstimator(object):
                 raise ValueError("Invalid argument in __init__: estimator does not have function score_samples")
             self._fit = self.estimator.fit
             self._score_samples = self.estimator.score_samples
-            self._score = None
         else:
             self._fit = self.base_fit
             self._score = self.base_score

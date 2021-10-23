@@ -18,6 +18,9 @@ class Data():
         -- Default value is all columns of dataset
     encoded? : boolean
         Bool showing whether the dataset has already been encoded/normalised
+    dtype? : str
+        Variable setting the default categoricals/numericals columns for "data" or "target"
+        -- Default value is "data"
 
     Methods
     ----------

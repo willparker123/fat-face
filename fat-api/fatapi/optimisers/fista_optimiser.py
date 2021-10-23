@@ -1,5 +1,5 @@
 
-from typing import Callable
+from typing import Callable, Union
 from fatapi.helpers import check_type
 from fatapi.optimisers import Optimiser
 import numpy as np
@@ -14,14 +14,13 @@ class FISTAOptimiser(Optimiser):
     
     Parameters
     ----------
-    objective() : (X: np.ndarray, Y: np.npdarray, predict()?: Callable[[np.ndarray], np.ndarray], predict:_proba()?: Callable[[np.ndarray],
-                    np.ndarray], **kwargs) -> np.ndarray
-        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+    objective() : (value: np.ndarray, **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve, taking in at least one argument 'value'.
+        Accepts any other arguments that may be required as **kwargs
         (e.g. delta, beta, gamma, c, autoencoder for CEM)
-    optimise()? : (objective?: Callable[..., np.ndarray], max_iterations?: int, initial_learning_rate?: float, 
-                    decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
-        Optimises the supplied objective function using a supplied learning rate and optional decay function, 
-        or using those set in the Optimiser object
+    step_function()? : (initial_value: np.ndarray, objective: Callable[..., np.ndarray], prev_loss: np.ndarray, learning_rate: float, iteration: int, 
+                        max_iterations: int, decay_function?: Callable[[float, int, int], float], **kwargs) -> np.ndarray
+        The function used at each timestep (until max_iterations or stop_condition) that is used for learning
     predict()? : (X: np.ndarray) -> np.ndarray
         Method for predicting the class label of X
         -- Only required if needed in optimise() or objective()
@@ -46,129 +45,96 @@ class FISTAOptimiser(Optimiser):
     beta?: Union[float, int]
         Parameter for regularisation / optimisation in CEM
         -- Only needed for certain methods (e.g. CEMMethod)
-    initial_deltas? : np.ndarray[num_features]
-        Initial value for the permutation of the factual (delta)
-        -- Only needed for certain methods (e.g. CEMMethod)  
-            self._optimiser.autoencoder = self._autoencoder
+    
     Methods
     -------
-    objective() : (X: np.ndarray, Y: np.npdarray, predict(): Callable[[np.ndarray], np.ndarray], **kwargs) -> np.ndarray
-        The objective function the optimiser is trying to solve. Accepts any other arguments that may be required as **kwargs
+    objective() : (value: np.ndarray, **kwargs) -> np.ndarray
+        The objective function the optimiser is trying to solve, taking in at least one argument 'value'.
+        Accepts any other arguments that may be required as **kwargs
         (e.g. delta, beta, gamma, c, autoencoder for CEM)
     optimise() : (objective: Callable[..., np.ndarray], max_iterations: int, initial_learning_rate: Union[float, int], 
                     decay_function: Callable[[float, int, int], float]) -> np.ndarray
         Optimises the supplied objective function using a supplied learning rate and optional decay function, 
         or using those set in the Optimiser object
     """
-    def __init__(self, **kwargs) -> None:
-        if kwargs.get("estimator"):
-            self.estimator = kwargs.get("estimator")
-            try:
-                if callable(getattr(self.estimator, "fit")):
-                    pass
-            except:
-                raise ValueError("Invalid argument in __init__: estimator does not have function fit")
-            try:
-                if callable(getattr(self.estimator, "score_samples")):
-                    pass
-            except:
-                raise ValueError("Invalid argument in __init__: estimator does not have function score_samples")
-            self._fit = self.estimator.fit
-            self._score_samples = self.estimator.score_samples
-            self._score = None
-        else:
-            self._fit = self.base_fit
-            self._score = self.base_score
-            self._score_samples = self.base_score_samples
-
-        if kwargs.get("distance_function"): 
-            self._distance_function = check_type(kwargs.get("distance_function"), "__init__", Callable)
-        else:
-            self._distance_function = lambda x, y: np.linalg.norm(x.reshape(-1, 1) - y.reshape(-1, 1))
-            
-        if kwargs.get("transformation_function"): 
-            self._transformation_function = check_type(kwargs.get("transformation_function"), "__init__", Callable)
-        else:
-            self._transformation_function = lambda x: -np.log(x)
+    def __init__(self, objective: Callable[[np.ndarray, np.ndarray, Callable[[np.ndarray], np.ndarray]], np.ndarray]=None, **kwargs):
+        self._step_function = self.fista_step_function
+        if 'step_function' in kwargs:
+            self._step_function = check_type(kwargs.get("step_function"), "__init__", Callable[[np.ndarray, Callable[..., np.ndarray], float, float, int, int, Callable[[float, int, int], float]], np.ndarray])
+        self._objective = objective
+        self._autoencoder = lambda X, **kwargs: X
+        if 'autoencoder' in kwargs:
+            self._autoencoder = check_type(type(kwargs.get("autoencoder")), "__init__", Callable[[np.ndarray], np.ndarray])
+        self._beta = 1
+        if 'beta' in kwargs:
+            if kwargs.get('beta') >= 0:
+                self._beta = check_type(kwargs.get("beta"), "__init__", float, int)
+            else:
+                raise ValueError(f"Invalid argument in __init__: beta must be >= 0")
         
-    def base_fit(self, X):
-        self.X = X
-        self.n_samples = X.shape[0]   
+    def optimise(self, initial_value: np.ndarray, objective: Callable[..., np.ndarray]=None, max_iterations: int=None, 
+                 initial_learning_rate: float=None, decay_function: Callable[[float, int, int], float]=None, **kwargs) -> np.ndarray:
+        obj_f = self.objective
+        obj_f = self.objective
+        max_iter = self.max_iterations
+        init_lr = self.initial_learning_rate
+        decay_f = self.decay_function
+        b = self.beta
+        ae = self.autoencoder
+        if objective is not None:
+            obj_f = objective
+        if max_iterations is not None:
+            max_iter = max_iterations
+        if initial_learning_rate is not None:
+            init_lr = initial_learning_rate
+        if decay_function is not None:
+            decay_f = decay_function
+        if 'beta' in kwargs:
+            b = check_type(kwargs.get("beta"), "__init__", float, int)
+        if 'autoencoder' in kwargs:
+            ae = check_type(kwargs.get("autoencoder"), "__init__", Callable[[np.ndarray], np.ndarray])
+        lr = init_lr
+        d = initial_value
+        prev_loss = obj_f(value=d, **kwargs)
+        for i in range(max_iter):
+            d = self.step_function(initial_value=d, objective=obj_f, prev_loss=prev_loss, learning_rate=lr, iteration=i, max_iterations=max_iter, decay_function=decay_f, **kwargs)
+            lr = decay_f(lr, i, max_iter, **kwargs)
+            if self.stop_condition(initial_value=d, objective=obj_f, learning_rate=lr, iteration=i, max_iterations=max_iter, **kwargs):
+                break
     
-    def base_score(self, X: np.ndarray, K: int=10):
-        distances = np.zeros(self.n_samples)
-        for idx in range(self.n_samples):
-            distances[idx] = self.distance_function(X, self.X[idx, :])
-        return self.transformation_function(np.sort(distances)[K])
+    #TODO
+    def fista_step_function(self, initial_value: np.ndarray, objective: Callable[..., np.ndarray], prev_loss: np.ndarray, learning_rate: Union[float, int], iteration: int, max_iterations: int, 
+                  decay_function: Callable[[float, int, int], float], autoencoder: Callable[[np.ndarray], np.ndarray], beta: Union[float, int], **kwargs) -> np.ndarray:
+        #lambda d, obj_f, prev_loss, lr, i, max_iter, decay_f, **kwargs: np.subtract(d, np.array(d.shape()).fill(lr*(obj_f(d, **kwargs)-prev_loss)))
+        y_k = initial_value
+        objective(y_k, autoencoder=autoencoder, beta=beta, **kwargs)
+        return
     
-    def base_score_samples(self, X: np.ndarray, K: int=10):
-        n_samples_test = X.shape[0]
-        if n_samples_test == 1:
-            return self.score_samples_single(X)
+    @property
+    def autoencoder(self) -> Callable[[np.ndarray], np.ndarray]:
+        """
+        Sets and changes the autoencoder which transforms X to be closer to the data manifold
+
+        """
+        
+        return self._autoencoder
+
+    @autoencoder.setter
+    def autoencoder(self, autoencoder) -> None:
+        self._autoencoder = check_type(autoencoder, "__init__", Callable[[np.ndarray], np.ndarray])
+
+    @property
+    def beta(self) -> Union[float, int]:
+        """
+        Sets and changes the beta variable of the CEM algorithm
+
+        """
+        
+        return self._beta
+
+    @beta.setter
+    def beta(self, beta) -> None:
+        if beta >= 0:
+            self._beta = check_type(beta, "beta.setter", float, int)
         else:
-            scores = np.zeros((n_samples_test, 1))
-            for idx in range(n_samples_test):
-                scores[idx] = self.score(X[idx, :], K)
-            return scores
-
-    @property
-    def distance_function(self) -> Callable:
-        """
-        Sets and changes the distance_function method of the density estimator
-
-        """
-        
-        return self._distance_function
-
-    @distance_function.setter
-    def distance_function(self, distance_function) -> None:
-        self._distance_function = check_type(distance_function, "distance_function.setter", Callable)
-        
-    @property
-    def transformation_function(self) -> Callable:
-        """
-        Sets and changes the transformation_function method of the density estimator
-
-        """
-        
-        return self._transformation_function
-
-    @transformation_function.setter
-    def transformation_function(self, transformation_function) -> None:
-        self._transformation_function = check_type(transformation_function, "transformation_function.setter", Callable)
-
-    @property
-    def fit(self) -> Callable:
-        """
-        Sets and changes the fit method of the density estimator
-
-        """
-        return self._fit
-
-    @fit.setter
-    def fit(self, fit) -> None:
-        self._fit = check_type(fit, "fit.setter", Callable)
-
-    @property
-    def score(self) -> Callable:
-        """
-        Sets and changes the score method of the density estimator
-
-        """
-        return self._score
-
-    @score.setter
-    def score(self, score) -> None:
-        self._score = check_type(score, "score.setter", Callable)
-
-    @property
-    def score_samples(self) -> Callable:
-        """
-        Sets and changes the score_samples method of the density estimator
-
-        """
-        return self._score_samples
-
-    @score_samples.setter
-    def score_samples(self, score_samples) -> None:
-        self._score_samples = check_type(score_samples, "score_samples.setter", Callable)
+            raise ValueError("Invalid argument in beta.setter: beta must be >= 0")

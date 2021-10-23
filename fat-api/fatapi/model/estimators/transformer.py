@@ -9,12 +9,17 @@ class Transformer(object):
     
     Parameters
     ----------
+    transformer : attr(fit, transform, inverse_transform)
+        Object which has the methods above used to encode / normalise data
+        -- Only required if transform, inverse_transform not supplied
     fit()? : (X: np.ndarray, columns: List[int])
         Fits the transformer to X - creates category dict internally
-    transform() : (X: np.ndarray) -> np.ndarray
+    transform()? : (X: np.ndarray) -> np.ndarray
         Generate transformed data from X using columns[] - requires fit
-    inverse_transform() : (X: np.ndarray) -> np.ndarray
+        -- Only required if transformer
+    inverse_transform()? : (X: np.ndarray) -> np.ndarray
         Generate original data from transformed X using columns[] - requires fit
+        -- Only required if transformer not supplied
     
     Methods
     -------
@@ -31,12 +36,30 @@ class Transformer(object):
         Inverse_transforms the data using encoder
         -- If no encoder, returns X
     """
-    def __init__(self, transform, inverse_transform, fit=None) -> None:
-        self.fit = self.base_fit()
+    def __init__(self, transform: Callable[[np.ndarray], np.ndarray]=None, inverse_transform: Callable[[np.ndarray], np.ndarray]=None, fit: Callable[[np.ndarray, List[int]], None]=None, **kwargs) -> None:
+        self.fit = self.base_fit
+        if not ('transformer' in kwargs or (transform is not None and inverse_transform is not None)):
+            raise ValueError(f"Missing arguments in __init__: must provide 'transformer' or 'transform' and 'inverse_transform'")
+        if 'transformer' in kwargs:
+            self.transformer = kwargs.get('transformer')
+            if getattr(kwargs.get('transformer'), "transform"):
+                self.transform = check_type(self.transformer.transform, "__init__", Callable)
+            else:
+                raise ValueError("Invalid argument in __init__: transformer does not have function transform")
+            if getattr(kwargs.get('transformer'), "inverse_transform"):
+                self.inverse_transform = check_type(self.transformer.inverse_transform, "__init__", Callable)
+            else:
+                raise ValueError("Invalid argument in __init__: transformer does not have function inverse_transform")
+            if getattr(kwargs.get('transformer'), "fit"):
+                self.fit = check_type(self.transformer.fit, "__init__", Callable)
+            else:
+                raise ValueError("Invalid argument in __init__: transformer does not have function fit")
         if fit:
             self.fit = check_type(fit, "__init__", Callable[[np.ndarray, List[int]], None])
-        self.transform = check_type(transform, "__init__", Callable[[np.ndarray], np.ndarray])
-        self.inverse_transform = check_type(inverse_transform, "__init__", Callable[[np.ndarray], np.ndarray])
+        if transform:
+            self.transform = check_type(transform, "__init__", Callable[[np.ndarray], np.ndarray])
+        if inverse_transform:
+            self.inverse_transform = check_type(inverse_transform, "__init__", Callable[[np.ndarray], np.ndarray])
 
     def base_fit(self, X: np.ndarray, columns: List[int]) -> None:
         self.X = X
@@ -54,7 +77,7 @@ class Transformer(object):
             cols = self.columns
         else:
             cols = range(len(X))
-        self.fit(X_rem)
+        self.fit(X_rem, cols)
         X_rem = self.transform(X_rem)
         j=0
         for i in range(len(X)):
