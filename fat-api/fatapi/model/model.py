@@ -106,32 +106,26 @@ class Model(object):
         if not target and Y_tofit:
             raise ValueError("Warning in __init__: no target supplied but Y_tofit supplied")
         try:
-            d, t = self.get_data_tofit()
-            if len(t)>0:
-                self.fitted_data = self.train(d, t)
-            else:
-                self.fitted_data = self.train(d)
+            print(f"X: {self.data.dataset}")
+            print(f"Y: {self.target.dataset}")
+            self.set_data_tofit()
+            self.fitted_data = self.train()
         except:
             raise ValueError("Error in model.train: self.train failed - please provide numpy.arrays to self.fit")
 
     def get_fitted_data(self):
         return self.fitted_data
 
-    def get_data_tofit(self, dd=None, tt=None):
-        d = self.data.dataset
-        if self.target:
-            t = self.target.dataset
-        else:
-            t = []
+    def set_data_tofit(self, dd: Data=None, tt: Data=None):
         if dd is not None:
-            d = dd
+            self.data.dataset = dd
         if tt is not None:
-            t = tt
+            self.target.dataset = tt
         if len(self.X_tofit)>0:
-            d = keep_cols(d, self.X_tofit)
-        if len(t)>0 and len(self.Y_tofit)>0:
-            t = keep_cols(t, self.Y_tofit)
-        return d, t
+            d = keep_cols(self.data.dataset, self.X_tofit)
+        if len(self.target.dataset)>0 and len(self.Y_tofit)>0:
+            t = keep_cols(self.target.dataset, self.Y_tofit)
+        return
 
     @property
     def fit(self) -> Callable[[np.ndarray, Optional[np.ndarray]], None]:
@@ -267,6 +261,7 @@ class Model(object):
             raise ValueError(f"Invalid call to decode: encoder is required")
     
     def scale(self, X: np.ndarray, columns: List[int]=None):
+        print(f"SCALE: X: {X}")
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
         if self.scaler:
@@ -279,14 +274,18 @@ class Model(object):
             else:
                 cols = range(X.shape[1])
             X_rem = np.squeeze(X_rem)
+            print(f"SCALE: Xrem: {X_rem}")
             if X_rem.ndim < 2:
                 X_rem = X_rem.reshape(-1, 1)
+            print(f"SCALE: Xrem: {X_rem}")
             self.scaler.fit(X_rem)
             X_trans = self.scaler.transform(X_rem)
             if type(X_trans) == np.ndarray:
                 X_rem = X_trans
             else:
                 X_rem = X_trans.toarray()
+            print(f"SCALE: X_trans: {X_trans}")
+            print(f"SCALE: X_transRem: {X_rem}")
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
@@ -325,7 +324,6 @@ class Model(object):
             raise ValueError(f"Invalid call to unscale: scaler is required")
     
     def train(self, X: np.ndarray=[], Y: np.ndarray=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
-        print("TTTT")
         if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:
@@ -336,7 +334,9 @@ class Model(object):
                 self.fit(X)
                 return (X)
             else:
-                X_, Y_ = self.data.dataset, self.target.dataset
+                X_ = self.data.dataset
+                if self.target is not None:
+                    Y_ = self.target.dataset
                 if not self.data.encoded:
                     if cols_encode:
                         X_ = self.encode(self.data.dataset, cols_encode)
@@ -346,7 +346,7 @@ class Model(object):
                         X_ = self.scale(self.data.dataset, cols_scale)
                     else:
                         X_ = self.scale(self.data.dataset, self.data.numericals)
-                if not self.target.encoded:
+                if not self.target.encoded and self.target is not None:
                     if cols_encode:
                         Y_ = self.encode(self.target.dataset, cols_encode)
                     else:
@@ -355,12 +355,15 @@ class Model(object):
                         Y_ = self.scale(self.target.dataset, cols_scale)
                     else:
                         Y_ = self.scale(self.target.dataset, self.target.categoricals)
-                for i in range(5):
-                    print(self.target.dataset[i])
-                X_, Y_ = self.get_data_tofit(X_, Y_)
-                self.fit(X_,Y_)
-                print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
-                return (X_,Y_)
+                if self.target is not None:
+                    self.fit(X_,Y_)
+                    print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
+                    return (X_,Y_)
+                else:
+                    self.fit(X_)
+                    print(f"Classification accuracy on Training Data: {self.score(X_)}")
+                    return (X_)
+                
     
     def __str__(self):
         return f"Data: {self.data}, Target: {self.target}, X_tofit: {self.X_tofit}, Y_tofit: {self.Y_tofit}"
