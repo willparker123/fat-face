@@ -123,9 +123,9 @@ class Model(object):
             t = self.target.dataset
         else:
             t = []
-        if dd:
+        if dd is not None:
             d = dd
-        if tt:
+        if tt is not None:
             t = tt
         if len(self.X_tofit)>0:
             d = keep_cols(d, self.X_tofit)
@@ -214,16 +214,23 @@ class Model(object):
         if self.encoder:
             X_copy = X
             if columns:
-                cols = columns.sort()
+                cols = columns
+                cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
                 X_rem = X
+            X_rem = np.squeeze(X_rem)
+            if X_rem.ndim < 2:
+                X_rem = X_rem.reshape(-1, 1)
             self.encoder.fit(X_rem)
-            X_rem = np.array(self.encoder.transform(X_rem).toarray())
+            X_trans = self.encoder.transform(X_rem)
+            if type(X_trans) == np.ndarray:
+                X_rem = X_trans
+            else:
+                X_rem = X_trans.toarray()
             j=0
             for i in range(X.shape[1]):
-    
                 if i in cols:
                     X_copy[:, i] = X_rem[:, j]
                     j+=1
@@ -237,11 +244,19 @@ class Model(object):
         if self.encoder:
             X_copy = X
             if columns:
-                cols = columns.sort()
+                cols = columns
+                cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
-            X_rem = np.array(self.encoder.inverse_transform(X_rem).toarray())
+            X_rem = np.squeeze(X_rem)
+            if X_rem.ndim < 2:
+                X_rem = X_rem.reshape(-1, 1)
+            X_trans = self.encoder.inverse_transform(X_rem)
+            if type(X_trans) == np.ndarray:
+                X_rem = X_trans
+            else:
+                X_rem = X_trans.toarray()
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
@@ -256,13 +271,22 @@ class Model(object):
             raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
         if self.scaler:
             X_copy = X
+            X_rem = X_copy
             if columns:
-                cols = columns.sort()
+                cols = columns
+                cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
+            X_rem = np.squeeze(X_rem)
+            if X_rem.ndim < 2:
+                X_rem = X_rem.reshape(-1, 1)
             self.scaler.fit(X_rem)
-            X_rem = np.array(self.scaler.transform(X_rem).toarray())
+            X_trans = self.scaler.transform(X_rem)
+            if type(X_trans) == np.ndarray:
+                X_rem = X_trans
+            else:
+                X_rem = X_trans.toarray()
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
@@ -278,11 +302,19 @@ class Model(object):
         if self.scaler:
             X_copy = X
             if columns:
-                cols = columns.sort()
+                cols = columns
+                cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
-            X_rem = np.array(self.scaler.inverse_transform(X_rem).toarray())
+            X_rem = np.squeeze(X_rem)
+            if X_rem.ndim < 2:
+                X_rem = X_rem.reshape(-1, 1)
+            X_trans = self.scaler.inverse_transform(X_rem)
+            if type(X_trans) == np.ndarray:
+                X_rem = X_trans
+            else:
+                X_rem = X_trans.toarray()
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
@@ -293,11 +325,12 @@ class Model(object):
             raise ValueError(f"Invalid call to unscale: scaler is required")
     
     def train(self, X: np.ndarray=[], Y: np.ndarray=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
+        print("TTTT")
         if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:
             if len(X)>0 and len(Y)>0:
-                self.fit(X,Y.ravel())
+                self.fit(X,Y)
                 return (X,Y)
             if len(X)>0:
                 self.fit(X)
@@ -322,8 +355,10 @@ class Model(object):
                         Y_ = self.scale(self.target.dataset, cols_scale)
                     else:
                         Y_ = self.scale(self.target.dataset, self.target.categoricals)
+                for i in range(5):
+                    print(self.target.dataset[i])
                 X_, Y_ = self.get_data_tofit(X_, Y_)
-                self.fit(X_,Y_.ravel())
+                self.fit(X_,Y_)
                 print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
                 return (X_,Y_)
     
