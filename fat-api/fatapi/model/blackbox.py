@@ -27,19 +27,19 @@ class BlackBox(object):
     """
     def __init__(self, classifier, **kwargs) -> None:
         self.classifier = classifier
-        if getattr(classifier, "predict"):
+        if hasattr(classifier, "predict"):
             self._predict = check_type(self.classifier.predict, "__init__", Callable[[np.ndarray], np.ndarray])
         else:
             raise ValueError("Invalid argument in __init__: classifier does not have function predict")
-        if getattr(classifier, "predict_proba"):
+        if hasattr(classifier, "predict_proba"):
             self._predict_proba = check_type(self.classifier.predict_proba, "__init__", Callable[[np.ndarray], np.ndarray])
         else:
             raise ValueError("Invalid argument in __init__: classifier does not have function predict_proba")
-        if getattr(classifier, "fit"):
+        if hasattr(classifier, "fit"):
             self._fit = check_type(self.classifier.fit, "__init__", Callable[[np.ndarray, Optional[np.ndarray]], None])
         else:
             raise ValueError("Invalid argument in __init__: classifier does not have function fit")
-        if getattr(classifier, "score"):
+        if hasattr(classifier, "score"):
             self._score = check_type(self.classifier.score, "__init__", Callable[[np.ndarray, np.ndarray], np.ndarray])
         else:
             raise ValueError("Invalid argument in __init__: classifier does not have function score")

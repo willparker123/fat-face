@@ -106,8 +106,6 @@ class Model(object):
         if not target and Y_tofit:
             raise ValueError("Warning in __init__: no target supplied but Y_tofit supplied")
         try:
-            print(f"X: {self.data.dataset}")
-            print(f"Y: {self.target.dataset}")
             self.set_data_tofit()
             self.fitted_data = self.train()
         except:
@@ -261,7 +259,7 @@ class Model(object):
             raise ValueError(f"Invalid call to decode: encoder is required")
     
     def scale(self, X: np.ndarray, columns: List[int]=None):
-        print(f"SCALE: X: {X}")
+        #print(f"SCALE: X: {X}")
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
         if self.scaler:
@@ -274,17 +272,18 @@ class Model(object):
             else:
                 cols = range(X.shape[1])
             X_rem = np.squeeze(X_rem)
-            print(f"SCALE: Xrem: {X_rem}")
+            #print(f"SCALE: Xrem: {X_rem}")
             if X_rem.ndim < 2:
                 X_rem = X_rem.reshape(-1, 1)
-            print(f"SCALE: Xrem: {X_rem}")
+            #print(f"SCALE: Xrem: {X_rem}")
             self.scaler.fit(X_rem)
             X_trans = self.scaler.transform(X_rem)
+            print(f"XTRAN: {self.scaler}")
             if type(X_trans) == np.ndarray:
                 X_rem = X_trans
             else:
                 X_rem = X_trans.toarray()
-            print(f"SCALE: X_trans: {X_trans}")
+            #print(f"SCALE: X_trans: {X_trans}")
             print(f"SCALE: X_transRem: {X_rem}")
             j=0
             for i in range(X.shape[1]):
@@ -337,24 +336,31 @@ class Model(object):
                 X_ = self.data.dataset
                 if self.target is not None:
                     Y_ = self.target.dataset
+                print(f"TRAIN X: {X_} Y: {Y_}")
                 if not self.data.encoded:
-                    if cols_encode:
+                    if cols_encode is not None:
                         X_ = self.encode(self.data.dataset, cols_encode)
                     else:
-                        X_ = self.encode(self.data.dataset, self.data.categoricals)
-                    if cols_scale:
+                        if len(self.data.categoricals)>0:
+                            X_ = self.encode(self.data.dataset, self.data.categoricals)
+                    if cols_scale is not None:
                         X_ = self.scale(self.data.dataset, cols_scale)
                     else:
-                        X_ = self.scale(self.data.dataset, self.data.numericals)
+                        if len(self.data.numericals)>0:
+                            X_ = self.scale(self.data.dataset, self.data.numericals)
+                print(f"TRAINED X: {X_}")
                 if not self.target.encoded and self.target is not None:
-                    if cols_encode:
+                    if cols_encode is not None:
                         Y_ = self.encode(self.target.dataset, cols_encode)
                     else:
-                        Y_ = self.encode(self.target.dataset, self.target.categoricals)
-                    if cols_scale:
+                        if len(self.target.categoricals)>0:
+                            Y_ = self.encode(self.target.dataset, self.target.categoricals)
+                    if cols_scale is not None:
                         Y_ = self.scale(self.target.dataset, cols_scale)
                     else:
-                        Y_ = self.scale(self.target.dataset, self.target.categoricals)
+                        if len(self.target.numericals)>0:
+                            Y_ = self.scale(self.target.dataset, self.target.numericals)
+                print(f"TRAINED Y: {Y_}")
                 if self.target is not None:
                     self.fit(X_,Y_)
                     print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
