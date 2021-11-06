@@ -25,24 +25,31 @@ class BlackBox(object):
         Method for calculating a score when predicting X and comparing with Y
 
     """
-    def __init__(self, classifier, **kwargs) -> None:
-        self.classifier = classifier
-        if hasattr(classifier, "predict"):
-            self._predict = check_type(self.classifier.predict, "__init__", Callable[[np.ndarray], np.ndarray])
+    def __init__(self, classifier=None, **kwargs) -> None:
+        if classifier is not None:
+            self.classifier = classifier
+            if hasattr(classifier, "predict"):
+                self._predict = check_type(self.classifier.predict, "__init__", Callable[[np.ndarray], np.ndarray])
+            else:
+                raise ValueError("Invalid argument in __init__: classifier does not have function predict")
+            if hasattr(classifier, "predict_proba"):
+                self._predict_proba = check_type(self.classifier.predict_proba, "__init__", Callable[[np.ndarray], np.ndarray])
+            else:
+                raise ValueError("Invalid argument in __init__: classifier does not have function predict_proba")
+            if hasattr(classifier, "fit"):
+                self._fit = check_type(self.classifier.fit, "__init__", Callable[[np.ndarray, Optional[np.ndarray]], None])
+            else:
+                raise ValueError("Invalid argument in __init__: classifier does not have function fit")
+            if hasattr(classifier, "score"):
+                self._score = check_type(self.classifier.score, "__init__", Callable[[np.ndarray, np.ndarray], np.ndarray])
+            else:
+                raise ValueError("Invalid argument in __init__: classifier does not have function score")#
         else:
-            raise ValueError("Invalid argument in __init__: classifier does not have function predict")
-        if hasattr(classifier, "predict_proba"):
-            self._predict_proba = check_type(self.classifier.predict_proba, "__init__", Callable[[np.ndarray], np.ndarray])
-        else:
-            raise ValueError("Invalid argument in __init__: classifier does not have function predict_proba")
-        if hasattr(classifier, "fit"):
-            self._fit = check_type(self.classifier.fit, "__init__", Callable[[np.ndarray, Optional[np.ndarray]], None])
-        else:
-            raise ValueError("Invalid argument in __init__: classifier does not have function fit")
-        if hasattr(classifier, "score"):
-            self._score = check_type(self.classifier.score, "__init__", Callable[[np.ndarray, np.ndarray], np.ndarray])
-        else:
-            raise ValueError("Invalid argument in __init__: classifier does not have function score")
+            if 'fit' in kwargs and 'predict' in kwargs and 'predict_proba' in kwargs and 'score' in kwargs:
+                self._fit = check_type(kwargs.get("fit"), "__init__", Callable[[np.ndarray, Optional[np.ndarray]], None])
+                self._predict = check_type(kwargs.get("predict"), "__init__", Callable[[np.ndarray], np.ndarray])
+                self._predict_proba = check_type(kwargs.get("predict_proba"), "__init__", Callable[[np.ndarray], np.ndarray])
+                self._score = check_type(kwargs.get("score"), "__init__", Callable)
 
     @property
     def fit(self) -> Callable[[np.ndarray, Optional[np.ndarray]], None]:
@@ -93,6 +100,3 @@ class BlackBox(object):
     @score.setter
     def score(self, score) -> None:
         self._score = check_type(score, "score.setter", Callable[[np.ndarray, np.ndarray], np.ndarray])
-        
-    def __str__(self):
-        return f"Classifier: {self.classifier}"

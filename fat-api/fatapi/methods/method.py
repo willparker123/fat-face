@@ -260,14 +260,14 @@ class ExplainabilityMethod(object):
                 raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.model else 'self.model'} or {'' if model else 'model'} or {'' if scaler else 'scaler'} or {'' if encoder else 'encoder'}")
             else:
                 if self.model:
-                    _encode = self.model.encode()
-                    _scale = self.model.scale()
+                    _encode = self.model.encode
+                    _scale = self.model.scale
                 if model:
-                    _encode = model.encode()
+                    _encode = model.encode
                 if encoder:
-                    _encode = encoder.encode()
+                    _encode = encoder.encode
                 if scaler:
-                    _scale = scaler.encode()
+                    _scale = scaler.encode
                 if _encode:
                     X_ = _encode(facts.dataset, facts.categoricals)
                 if _scale:

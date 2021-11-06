@@ -60,8 +60,8 @@ class Model(object):
         -- If no scaler, returns X
     """
     def __init__(self, data: Data, target: Data=None, X_tofit: List[int]=[], Y_tofit: List[int]=[], **kwargs) -> None:
-        if not ('blackbox' in kwargs) or ('fit' in kwargs and 'predict' in kwargs and 'predict_proba' in kwargs):
-            raise ValueError(f"Missing arguments in __init__: [{'' if 'blackbox' in kwargs else 'blackbox'}, {'' if 'fit' in kwargs else 'fit'}, {'' if 'predict' in kwargs else 'predict'}, {'' if 'predict_proba' in kwargs else 'predict_proba'}, {'' if 'score' in kwargs else 'score'}]")
+        if not (('blackbox' in kwargs) or ('fit' in kwargs and 'predict' in kwargs and 'predict_proba' in kwargs)):
+            raise ValueError(f"Missing arguments in __init__: [{'' if 'blackbox' in kwargs else 'blackbox'}] or [{'' if 'fit' in kwargs else 'fit'}, {'' if 'predict' in kwargs else 'predict'}, {'' if 'predict_proba' in kwargs else 'predict_proba'}, {'' if 'score' in kwargs else 'score'}]")
         if 'blackbox' in kwargs:
             self.blackbox = check_type(kwargs.get("blackbox"), "__init__", BlackBox)
             self._fit = self.blackbox.fit
@@ -107,7 +107,6 @@ class Model(object):
             raise ValueError("Warning in __init__: no target supplied but Y_tofit supplied")
         try:
             self.set_data_tofit()
-            self.fitted_data = self.train()
         except:
             raise ValueError("Error in model.train: self.train failed - please provide numpy.arrays to self.fit")
 
@@ -224,7 +223,7 @@ class Model(object):
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
-                    X_copy[:, i] = X_rem[:, j]
+                    X_copy[i] = X_rem[j]
                     j+=1
             return X_copy
         else:
@@ -252,14 +251,14 @@ class Model(object):
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
-                    X_copy[:, i] = X_rem[:, j]
+                    X_copy[i] = X_rem[j]
                     j+=1
             return X_copy
         else:
             raise ValueError(f"Invalid call to decode: encoder is required")
     
     def scale(self, X: np.ndarray, columns: List[int]=None):
-        #print(f"SCALE: X: {X}")
+        print(f"SCALE: X: {X}")
         if not_in_range(X.shape[1], columns):
             raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
         if self.scaler:
@@ -288,7 +287,7 @@ class Model(object):
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
-                    X_copy[:, i] = X_rem[:, j]
+                    X_copy[i] = X_rem[j]
                     j+=1
             return X_copy
         else:
@@ -316,7 +315,7 @@ class Model(object):
             j=0
             for i in range(X.shape[1]):
                 if i in cols:
-                    X_copy[:, i] = X_rem[:, j]
+                    X_copy[i] = X_rem[j]
                     j+=1
             return X_copy
         else:
@@ -328,9 +327,11 @@ class Model(object):
         else:
             if len(X)>0 and len(Y)>0:
                 self.fit(X,Y)
+                self.fitted_data = (X,Y)
                 return (X,Y)
             if len(X)>0:
                 self.fit(X)
+                self.fitted_data = X
                 return (X)
             else:
                 X_ = self.data.dataset
@@ -355,19 +356,22 @@ class Model(object):
                     else:
                         if len(self.target.categoricals)>0:
                             Y_ = self.encode(self.target.dataset, self.target.categoricals)
+                    print(f"TRAINED Y1: {Y_}")
                     if cols_scale is not None:
                         Y_ = self.scale(self.target.dataset, cols_scale)
                     else:
                         if len(self.target.numericals)>0:
                             Y_ = self.scale(self.target.dataset, self.target.numericals)
-                print(f"TRAINED Y: {Y_}")
+                print(f"TRAINED Y2: {Y_}")
                 if self.target is not None:
                     self.fit(X_,Y_)
                     print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
+                    self.fitted_data = (X_,Y_)
                     return (X_,Y_)
                 else:
                     self.fit(X_)
                     print(f"Classification accuracy on Training Data: {self.score(X_)}")
+                    self.fitted_data = (X_)
                     return (X_)
                 
     
