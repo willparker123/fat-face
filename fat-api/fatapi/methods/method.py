@@ -2,7 +2,7 @@ from fatapi.model import Model
 from fatapi.model.estimators import Transformer
 from fatapi.data import Data
 from fatapi.helpers import check_type
-from typing import Callable, Tuple, Union
+from typing import Callable, List
 import numpy as np
 
 class ExplainabilityMethod(object):
@@ -231,7 +231,7 @@ class ExplainabilityMethod(object):
             else:
                 return self._explain(factuals=facts_, predict=_predict, predict_proba=_predict_proba, **kwargs)
 
-    def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None) -> np.ndarray:
+    def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None, col_groups_encode: List[List[int]]=None, col_groups_scale: List[int]=None, encode_first: bool=True) -> np.ndarray:
         if not self.factuals and not factuals:
             raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.factuals else 'self.factuals'} or {'' if factuals else 'factuals'}")
         facts = None

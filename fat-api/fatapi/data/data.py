@@ -30,8 +30,8 @@ class Data():
 
     def __init__(self, 
                 dataset: np.ndarray,
-                categoricals: List[int]=[], 
-                numericals: List[int]=[], 
+                categoricals: List[List[int]]=[], 
+                numericals: List[List[int]]=[], 
                 encoded: bool=False,
                 dtype: str="data"):
         n_features = 1
@@ -41,14 +41,14 @@ class Data():
         self.n_data = dataset.shape[0]
         if n_features == 1:
             dataset = np.reshape(dataset,(self.n_data,1))
-        self._categoricals: List[int] = []
-        self._numericals: List[int] = list(range(n_features))
+        self._categoricals: List[List[int]] = []
+        self._numericals: List[List[int]] = list(list(range(n_features)))
         if dtype:
             if dtype=="data" or dtype=="target":
                 if dtype=="data":
-                    self._numericals = list(range(n_features))
+                    self._numericals = list(list(range(n_features)))
                 else:
-                    self._categoricals = list(range(n_features))
+                    self._categoricals = list(list(range(n_features)))
             else:
                 raise ValueError("Invalid arguments in __init__: type must be 'data' or 'target'")
         if categoricals:
@@ -81,7 +81,7 @@ class Data():
         self._encoded = check_type(encoded, "encoded.setter", bool)
 
     @property
-    def categoricals(self) -> List[int]:
+    def categoricals(self) -> List[List[int]]:
         """
         Sets and changes categoricals
 
@@ -93,11 +93,11 @@ class Data():
     def categoricals(self, categoricals) -> None:
         if len(self._categoricals) > 0 and not_in_range(self.n_features, self._categoricals):
             raise ValueError("Invalid argument in categoricals.setter: Index in categoricals is out of range")        
-        self._categoricals = check_type(categoricals, "categoricals.setter", List[int])
+        self._categoricals = check_type(categoricals, "categoricals.setter", List[List[int]])
         
 
     @property
-    def numericals(self) -> List[int]:
+    def numericals(self) -> List[List[int]]:
         """
         Sets and changes numericals
 
@@ -109,7 +109,7 @@ class Data():
     def numericals(self, numericals) -> None:
         if len(self._numericals) > 0 and not_in_range(self.n_features, self._numericals):
             raise ValueError("Invalid argument in numericals.setter: Index in numericals is out of range")
-        self._numericals = check_type(numericals, "numericals.setter", List[int])
+        self._numericals = check_type(numericals, "numericals.setter", List[List[int]])
 
     def __str__(self):
         return f"Data: {self.dataset}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.encoded}"

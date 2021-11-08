@@ -9,6 +9,7 @@ def keep_cols(data, cols):
     return data[:, cols]
 
 def not_in_range(x, _list):
+    _list = sum(_list, [])
     return any((ind >= x or ind < 0) for ind in _list)
 
 def sigmoid(x):

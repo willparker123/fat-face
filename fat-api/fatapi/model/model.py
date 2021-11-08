@@ -44,7 +44,7 @@ class Model(object):
     -------
     get_fitted_data(): () -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]
         Returns the dataset the model has been fitted to; tuple of (X) or (X, Y)
-    train() -> (X: np.ndarray, Y: np.ndarray, cols_encode?: List[int], cols_scale?: List[int]) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+    train() -> (X: np.ndarray, Y: np.ndarray, col_groups_encode?: List[int], col_groups_scale?: List[int]) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         Calls self.fit() after scaling/normalising
     encode(): (X: np.ndarray, columns: List[int]) -> np.ndarray
         Fits and transforms the data using encoder
@@ -199,19 +199,19 @@ class Model(object):
     def scaler(self, scaler) -> None:
         self._scaler = check_type(scaler, "scaler.setter", Transformer)
         
-    def encode(self, X: np.ndarray, columns: List[int]=None):
-        if not_in_range(X.shape[1], columns):
+    def encode(self, X: np.ndarray, column_groups: List[List[int]]=None):
+        if column_groups is not None and not_in_range(X.shape[1], column_groups):
             raise ValueError("Invalid arguments in encode: Index in parameter columns is out of range")
         if self.encoder:
             X_copy = X
-            if columns:
+            X_rem = X_copy
+            if column_groups is not None:
                 cols = columns
                 cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
-                X_rem = X
-            X_rem = np.squeeze(X_rem)
+            #X_rem = np.squeeze(X_rem)
             if X_rem.ndim < 2:
                 X_rem = X_rem.reshape(-1, 1)
             self.encoder.fit(X_rem)
@@ -219,9 +219,12 @@ class Model(object):
             if type(X_trans) == np.ndarray:
                 X_rem = X_trans
             else:
-                X_rem = X_trans.toarray()
+                try:
+                    X_copy = X_trans.toarray()
+                except:
+                    raise ValueError(f"Error in encode(): cannot convert X_trans of type {type(X_trans)} to np.ndarray")
             j=0
-            for i in range(X.shape[1]):
+            for i in range(X_copy.shape[0]):
                 if i in cols:
                     X_copy[i] = X_rem[j]
                     j+=1
@@ -229,27 +232,29 @@ class Model(object):
         else:
             raise ValueError(f"Invalid call to encode: encoder is required")
     
-    def decode(self, X: np.ndarray=None, columns: List[int]=None):
-        if columns and not_in_range(X.shape[1], columns):
+    def decode(self, X: np.ndarray=None, column_groups: List[List[int]]=None):
+        if column_groups is not None and not_in_range(X.shape[1], column_groups):
             raise ValueError("Invalid arguments in decode: Index in parameter columns is out of range")
         if self.encoder:
             X_copy = X
-            if columns:
+            if column_groups is not None:
                 cols = columns
                 cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
-            X_rem = np.squeeze(X_rem)
             if X_rem.ndim < 2:
                 X_rem = X_rem.reshape(-1, 1)
             X_trans = self.encoder.inverse_transform(X_rem)
             if type(X_trans) == np.ndarray:
                 X_rem = X_trans
             else:
-                X_rem = X_trans.toarray()
+                try:
+                    X_copy = X_trans.toarray()
+                except:
+                    raise ValueError(f"Error in decode(): cannot convert X_trans of type {type(X_trans)} to np.ndarray")
             j=0
-            for i in range(X.shape[1]):
+            for i in range(X.shape[0]):
                 if i in cols:
                     X_copy[i] = X_rem[j]
                     j+=1
@@ -257,35 +262,32 @@ class Model(object):
         else:
             raise ValueError(f"Invalid call to decode: encoder is required")
     
-    def scale(self, X: np.ndarray, columns: List[int]=None):
-        print(f"SCALE: X: {X}")
-        if not_in_range(X.shape[1], columns):
+    def scale(self, X: np.ndarray, column_groups: List[List[int]]=None):
+        if column_groups is not None and not_in_range(X.shape[1], column_groups):
             raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
         if self.scaler:
             X_copy = X
             X_rem = X_copy
-            if columns:
+            if column_groups is not None:
                 cols = columns
                 cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
-            X_rem = np.squeeze(X_rem)
-            #print(f"SCALE: Xrem: {X_rem}")
+            #X_rem = np.squeeze(X_rem)
             if X_rem.ndim < 2:
                 X_rem = X_rem.reshape(-1, 1)
-            #print(f"SCALE: Xrem: {X_rem}")
             self.scaler.fit(X_rem)
             X_trans = self.scaler.transform(X_rem)
-            print(f"XTRAN: {self.scaler}")
             if type(X_trans) == np.ndarray:
                 X_rem = X_trans
             else:
-                X_rem = X_trans.toarray()
-            #print(f"SCALE: X_trans: {X_trans}")
-            print(f"SCALE: X_transRem: {X_rem}")
+                try:
+                    X_copy = X_trans.toarray()
+                except:
+                    raise ValueError(f"Error in scale(): cannot convert X_trans of type {type(X_trans)} to np.ndarray")
             j=0
-            for i in range(X.shape[1]):
+            for i in range(X_copy.shape[0]):
                 if i in cols:
                     X_copy[i] = X_rem[j]
                     j+=1
@@ -293,27 +295,29 @@ class Model(object):
         else:
             raise ValueError(f"Invalid call to scale: scaler is required")
     
-    def unscale(self, X: np.ndarray=None, columns: List[int]=None):
-        if columns and not_in_range(X.shape[1], columns):
+    def unscale(self, X: np.ndarray=None, column_groups: List[List[int]]=None):
+        if column_groups is not None and not_in_range(X.shape[1], column_groups):
             raise ValueError("Invalid arguments in unscale: Index in parameter columns is out of range")
         if self.scaler:
             X_copy = X
-            if columns:
+            if column_groups is not None:
                 cols = columns
                 cols.sort()
                 X_rem = keep_cols(X, cols)
             else:
                 cols = range(X.shape[1])
-            X_rem = np.squeeze(X_rem)
             if X_rem.ndim < 2:
                 X_rem = X_rem.reshape(-1, 1)
             X_trans = self.scaler.inverse_transform(X_rem)
             if type(X_trans) == np.ndarray:
                 X_rem = X_trans
             else:
-                X_rem = X_trans.toarray()
+                try:
+                    X_copy = X_trans.toarray()
+                except:
+                    raise ValueError(f"Error in unscale(): cannot convert X_trans of type {type(X_trans)} to np.ndarray")
             j=0
-            for i in range(X.shape[1]):
+            for i in range(X.shape[0]):
                 if i in cols:
                     X_copy[i] = X_rem[j]
                     j+=1
@@ -321,7 +325,7 @@ class Model(object):
         else:
             raise ValueError(f"Invalid call to unscale: scaler is required")
     
-    def train(self, X: np.ndarray=[], Y: np.ndarray=[], cols_encode: List[int]=None, cols_scale: List[int]=None):
+    def train(self, X: np.ndarray=[], Y: np.ndarray=[], col_groups_encode: List[List[int]]=None, col_groups_scale: List[List[int]]=None, encode_first: bool=True):
         if len(Y)>0 and len(X)<1:
             raise ValueError("Invalid argument to model.train: X not provided - please provide only X or X and Y or nothing")
         else:
@@ -337,32 +341,55 @@ class Model(object):
                 X_ = self.data.dataset
                 if self.target is not None:
                     Y_ = self.target.dataset
-                print(f"TRAIN X: {X_} Y: {Y_}")
+                print(f"Processing X: {X_},\nY: {Y_}")
                 if not self.data.encoded:
-                    if cols_encode is not None:
-                        X_ = self.encode(self.data.dataset, cols_encode)
+                    if encode_first:
+                        if col_groups_encode is not None:
+                            X_ = self.encode(self.data.dataset, col_groups_encode)
+                        else:
+                            if len(self.data.categoricals)>0:
+                                X_ = self.encode(self.data.dataset, self.data.categoricals)
+                        if col_groups_scale is not None:
+                            X_ = self.scale(X_, col_groups_scale)
+                        else:
+                            if len(self.data.numericals)>0:
+                                X_ = self.scale(X_, self.data.numericals)
                     else:
-                        if len(self.data.categoricals)>0:
-                            X_ = self.encode(self.data.dataset, self.data.categoricals)
-                    if cols_scale is not None:
-                        X_ = self.scale(self.data.dataset, cols_scale)
-                    else:
-                        if len(self.data.numericals)>0:
-                            X_ = self.scale(self.data.dataset, self.data.numericals)
-                print(f"TRAINED X: {X_}")
+                        if col_groups_scale is not None:
+                            X_ = self.scale(self.data.dataset, col_groups_scale)
+                        else:
+                            if len(self.data.numericals)>0:
+                                X_ = self.scale(self.data.dataset, self.data.numericals)
+                        if col_groups_encode is not None:
+                            X_ = self.encode(X_, col_groups_encode)
+                        else:
+                            if len(self.data.categoricals)>0:
+                                X_ = self.encode(X_, self.data.categoricals)
+                print(f"Processed X: {X_}")
                 if not self.target.encoded and self.target is not None:
-                    if cols_encode is not None:
-                        Y_ = self.encode(self.target.dataset, cols_encode)
+                    if encode_first:
+                        if col_groups_encode is not None:
+                            Y_ = self.encode(self.target.dataset, col_groups_encode)
+                        else:
+                            if len(self.target.categoricals)>0:
+                                Y_ = self.encode(self.target.dataset, self.target.categoricals)
+                        if col_groups_scale is not None:
+                            Y_ = self.scale(Y_, col_groups_scale)
+                        else:
+                            if len(self.target.numericals)>0:
+                                Y_ = self.scale(Y_, self.target.numericals)
                     else:
-                        if len(self.target.categoricals)>0:
-                            Y_ = self.encode(self.target.dataset, self.target.categoricals)
-                    print(f"TRAINED Y1: {Y_}")
-                    if cols_scale is not None:
-                        Y_ = self.scale(self.target.dataset, cols_scale)
-                    else:
-                        if len(self.target.numericals)>0:
-                            Y_ = self.scale(self.target.dataset, self.target.numericals)
-                print(f"TRAINED Y2: {Y_}")
+                        if col_groups_scale is not None:
+                            Y_ = self.scale(self.target.dataset, col_groups_scale)
+                        else:
+                            if len(self.target.numericals)>0:
+                                Y_ = self.scale(self.target.dataset, self.target.numericals)
+                        if col_groups_encode is not None:
+                            Y_ = self.encode(Y_, col_groups_encode)
+                        else:
+                            if len(self.target.categoricals)>0:
+                                Y_ = self.encode(Y_, self.target.categoricals)
+                print(f"Processed Y: {Y_}")
                 if self.target is not None:
                     self.fit(X_,Y_)
                     print(f"Classification accuracy on Training Data: {self.score(X_,Y_)}")
