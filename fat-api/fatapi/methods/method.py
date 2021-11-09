@@ -194,6 +194,7 @@ class ExplainabilityMethod(object):
             X_ = X
         if len(Y)>0:
             Y_ = Y
+        print(f"Y_: {Y_}")
         if len(Y_)>0 and len(facts_target_)==0:
             raise ValueError("Invalid arguments to explain: target for data supplied but no facts_target_")
         if len(Y_)<=0 and len(facts_target_)>0:
@@ -210,6 +211,7 @@ class ExplainabilityMethod(object):
                 raise ValueError("Invalid argument in explain: different number of points in data and target")
         if not (facts_.shape[0]==facts_target_.shape[0]):
             raise ValueError("Invalid argument in explain: different number of points in facts and facts_target")
+        
         if len(facts_target_)>0:
             if len(X_)>0:
                 if len(Y_)>0:
@@ -232,31 +234,31 @@ class ExplainabilityMethod(object):
                 return self._explain(factuals=facts_, predict=_predict, predict_proba=_predict_proba, **kwargs)
 
     def preprocess_factuals(self, factuals: Data=None, factuals_target: Data=None, model: Model=None, scaler: Transformer=None, encoder: Transformer=None, col_groups_encode: List[List[int]]=None, col_groups_scale: List[int]=None, encode_first: bool=True) -> np.ndarray:
-        if not self.factuals and not factuals:
+        if not hasattr(self, "factuals") and factuals is None:
             raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.factuals else 'self.factuals'} or {'' if factuals else 'factuals'}")
         facts = None
-        if self.factuals:
+        if hasattr(self, "factuals"):
             facts = self.factuals
-        if factuals:
+        if factuals is not None:
             facts = factuals
-        if not self.factuals_target:
+        if not hasattr(self, "factuals_target"):
             if factuals_target:
                 print(f"Warning: targets for factuals provided in preprocess_factuals but no default self.factuals_target")
             else:
                 print(f"Warning: no targets for factuals provided to preprocess_factuals - features only (X)")
         facts_target = None
-        if self.factuals_target:
+        if hasattr(self, "factuals_target"):
             facts_target = self.factuals_target
-        if factuals_target:
+        if factuals_target is not None:
             facts_target = factuals_target
         Y_ = []
-        if facts_target:
+        if facts_target is not None:
             Y_ = facts_target.dataset
         X_ = facts.dataset
         if facts.encoded and facts_target.encoded:
             return X_, Y_
         else:
-            if not (self.model or model or scaler or encoder):
+            if not (self.model or model):
                 raise ValueError(f"Missing arguments in preprocess_factuals: must provide {'' if self.model else 'self.model'} or {'' if model else 'model'} or {'' if scaler else 'scaler'} or {'' if encoder else 'encoder'}")
             else:
                 if self.model:
@@ -268,14 +270,14 @@ class ExplainabilityMethod(object):
                     _encode = encoder.encode
                 if scaler:
                     _scale = scaler.encode
-                if _encode:
+                if _encode and not facts.encoded:
                     X_ = _encode(facts.dataset, facts.categoricals)
-                if _scale:
+                if _scale and not facts.encoded:
                     X_ = _scale(facts.dataset, facts.numericals)
                 if facts_target: 
-                    if _encode:
+                    if _encode and not facts_target.encoded:
                         Y_ = _encode(facts_target.dataset, facts_target.categoricals)
-                    if _scale:
+                    if _scale and not facts_target.encoded:
                         Y_ = _scale(facts_target.dataset, facts_target.numericals)
             return X_, Y_
 

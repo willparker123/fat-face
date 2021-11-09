@@ -367,7 +367,7 @@ class FACEMethod(ExplainabilityMethod):
         else:
             raise ValueError("Invalid argument in kernel.setter: kernel_type is not 'kde', 'knn', 'e' or 'gs'") 
 
-    def kernel_KDE(self, X: np.ndarray, t_density, t_distance, density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None):
+    def kernel_KDE(self, X: np.ndarray, t_density, t_distance, density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None, conditions: Callable[[np.ndarray, np.ndarray, Union[float, int]], bool]=lambda **kwargs: True):
         print(f"Processing KERNELKDE")
         density_estimator.fit(X)
         n_samples = X.shape[0]
@@ -388,15 +388,13 @@ class FACEMethod(ExplainabilityMethod):
                     density = density_estimator.score_samples(midpoint.reshape(1, -1))
                     density_X_1 = density_estimator.score_samples(X_1.reshape(1, -1))
                     if np.exp(density_X_1) >= t_density:
-                        g[i,j] = weight_function(np.exp(density)) * dist
-                    else:
-                        g[i,j] = 0
-                else:
-                    g[i,j] = 0
+                        weight = weight_function(np.exp(density)) * dist
+                        if conditions(X_1=X[i, :], X_2=X[j, :], weight=weight):
+                            g[i,j] = weight
         g = g + g.T - np.diag(np.diag(g))
         return g
         
-    def kernel_GS(self, X: np.ndarray, t_density, t_distance, K: int, radius_limit, density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None):
+    def kernel_GS(self, X: np.ndarray, t_density, t_distance, K: int, radius_limit, density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None, conditions: Callable[[np.ndarray, np.ndarray, Union[float, int]], bool]=lambda **kwargs: True):
         density_estimator.fit(X)
         n_samples = X.shape[0]
         length = n_samples
@@ -415,15 +413,13 @@ class FACEMethod(ExplainabilityMethod):
                     density = density_estimator.score_samples(midpoint.reshape(1, -1), K)
                     gs_score = density_estimator.score_samples(X_1.reshape(1, -1), K+1)
                     if gs_score >= radius_limit and density >= t_density:
-                        g[i,j] = weight_function(sigmoid(density)) * dist
-                    else:
-                        g[i,j] = 0
-                else:
-                    g[i,j] = 0
+                        weight = weight_function(sigmoid(density)) * dist
+                        if conditions(X_1=X[i, :], X_2=X[j, :], weight=weight):
+                            g[i,j] = weight
         g = g + g.T - np.diag(np.diag(g))
         return g
 
-    def kernel_KNN(self, X: np.ndarray, n_neighbours: int, weight_function: Callable[[Union[float, int]], float], samples=None):
+    def kernel_KNN(self, X: np.ndarray, n_neighbours: int, weight_function: Callable[[Union[float, int]], float], samples=None, conditions: Callable[[np.ndarray, np.ndarray, Union[float, int]], bool]=lambda **kwargs: True):
         n_samples = X.shape[0]
         length = n_samples
         if samples:
@@ -445,11 +441,12 @@ class FACEMethod(ExplainabilityMethod):
             for j in range(length):
                 v1 = X[j, :].reshape(-1, 1)
                 if g[i, j] != 0:
-                    current_value = g[i, j]
-                    g[i, j] = current_value * weight_function(const / (current_value**n_samples))
+                    if conditions(X_1=X[i, :], X_2=X[j, :], weight=g[i, j]):
+                        current_value = g[i, j]
+                        g[i, j] = current_value * weight_function(const / (current_value**n_samples))
         return g
         
-    def kernel_E(self, X: np.ndarray, t_distance: Union[float, int], epsilon: Union[float, int], samples=None):
+    def kernel_E(self, X: np.ndarray, t_distance: Union[float, int], epsilon: Union[float, int], samples=None, conditions: Callable[[np.ndarray, np.ndarray, Union[float, int]], bool]=lambda **kwargs: True):
         n_samples = X.shape[0]
         length = n_samples
         if samples:
@@ -461,61 +458,26 @@ class FACEMethod(ExplainabilityMethod):
                 v1 = X[j, :].reshape(-1, 1)
                 dist = np.linalg.norm(v0 - v1)
                 if dist <= epsilon and dist <= t_distance:
-                    g[i, j] = epsilon
+                    if conditions(X_1=X[i, :], X_2=X[j, :], weight=epsilon):
+                        g[i, j] = epsilon
         g = g + g.T - np.diag(np.diag(g))
         return g
 
-    def check_edge(self, **kwargs):
-        if not ('weight' in kwargs and 'X_1' in kwargs and 'X_2' in kwargs and len(kwargs.get("X_1"))>0 and len(kwargs.get("X_2"))>0):
-            raise ValueError(f"Missing arguments in check_edge: {'' if 'X_1' in kwargs else 'X_1'} {'' if 'X_2' in kwargs else 'X_2'} {'' if 'weight' in kwargs else 'weight'} {'' if 'conditions' in kwargs else 'conditions'}")
-        X_1 = check_type(kwargs.get("X_1"), "check_edge", np.ndarray)
-        X_2 = check_type(kwargs.get("X_2"), "check_edge", np.ndarray)
-        weight = check_type(kwargs.get("weight"), "check_edge", float, int)
-        conditions = check_type(kwargs.get("conditions"), "check_edge", Callable[[np.ndarray, np.ndarray, Union[float, int]], bool])
-        if conditions(X_1=X_1, X_2=X_2, weight=weight):
-            return True
-        else:
-            return False
-
-    def get_kernel_image(self, X: np.ndarray, kernel: Callable[[np.ndarray, Callable], np.ndarray], t_prediction: Union[float, int], t_density: Union[float, int], t_distance: Union[float, int], epsilon: Union[float, int], n_neighbours: int, K: int, radius_limit: Union[float, int], density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None):
-        if self.kernel_type.lower()=="kde":
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, density_estimator=density_estimator, weight_function=weight_function, samples=samples)
-        elif self.kernel_type.lower()=="knn":
-            temp = kernel(X=X, n_neighbours=n_neighbours, weight_function=weight_function, samples=samples)
-        elif self.kernel_type.lower()=="e":
-            temp = kernel(X=X, t_distance=t_distance, epsilon=epsilon, samples=samples)
-        elif self.kernel_type.lower()=="gs":
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, K=K, radius_limit=radius_limit, density_estimator=density_estimator, weight_function=weight_function, samples=samples)
-        else:
-            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, epsilon=epsilon, t_prediction=t_prediction, K=K, weight_function=weight_function, samples=samples)
-        return temp
-
-    def build_graph(self, **kwargs):
-        if not ('conditions' in kwargs and 'X' in kwargs and 'kernel_image' in kwargs):
-            raise ValueError(f"Missing arguments in build_graph: {'' if 'X' in kwargs else 'X'} {'' if 'kernel_image' in kwargs else 'kernel_image'} {'' if 'conditions' in kwargs else 'conditions'}")
-        if 'X' in kwargs:
-            if len(kwargs.get("X"))>0:
-                X = check_type(kwargs.get("X"), "build_graph", np.ndarray)
-            else:
-                raise ValueError("Invalid argument in build_graph: X is empty")
-        if 'kernel_image' in kwargs:
-            if len(kwargs.get("kernel_image"))>0:
-                kernel_image = check_type(kwargs.get("kernel_image"), "build_graph", np.ndarray)
-            else:
-                raise ValueError("Invalid argument in build_graph: kernel_image is empty")
+#build_graph
+    def build_graph(self, X: np.ndarray, kernel: Callable[[np.ndarray, Callable], np.ndarray], t_prediction: Union[float, int], t_density: Union[float, int], t_distance: Union[float, int], epsilon: Union[float, int], n_neighbours: int, K: int, radius_limit: Union[float, int], density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None, **kwargs):
         if 'conditions' in kwargs:
             conditions = check_type(kwargs.get("conditions"), "build_graph", Callable[[np.ndarray, np.ndarray, Union[float, int]], bool])
-        n_samples = X.shape[0]
-        g = np.zeros([n_samples, n_samples], dtype=float)
-        for i in range(n_samples):
-            for j in range(i):
-                if self.check_edge(X_1=X[i, :], X_2=X[j, :], weight=float(kernel_image[i, j]), conditions=conditions):
-                    g[i, j] = kernel_image[i, j]
-                else:
-                    g[i, j] = 0
-        g = g + g.T - np.diag(np.diag(g))
-        self.graph = g
-        return g
+        if self.kernel_type.lower()=="kde":
+            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, density_estimator=density_estimator, weight_function=weight_function, samples=samples, conditions=conditions)
+        elif self.kernel_type.lower()=="knn":
+            temp = kernel(X=X, n_neighbours=n_neighbours, weight_function=weight_function, samples=samples, conditions=conditions)
+        elif self.kernel_type.lower()=="e":
+            temp = kernel(X=X, t_distance=t_distance, epsilon=epsilon, samples=samples, conditions=conditions)
+        elif self.kernel_type.lower()=="gs":
+            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, K=K, radius_limit=radius_limit, density_estimator=density_estimator, weight_function=weight_function, samples=samples, conditions=conditions)
+        else:
+            temp = kernel(X=X, t_density=t_density, t_distance=t_distance, epsilon=epsilon, t_prediction=t_prediction, K=K, weight_function=weight_function, samples=samples, conditions=conditions)
+        return temp
 
     def explain_FACE(self, X: np.ndarray, Y: np.ndarray, factuals: np.ndarray, factuals_target: np.ndarray, **kwargs) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         if not ((len(X)>0 and len(Y)>0) or (self.data and self.target)):
@@ -585,13 +547,12 @@ class FACEMethod(ExplainabilityMethod):
             t_radius = check_type(kwargs.get("t_radius"), "explain_FACE", float, int)
             
         predictions = pred_proba_f(X)
-        kernel_image = self.get_kernel_image(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, t_radius, density_estimator, weight_function)
-        graph = self.build_graph(X=X, kernel_image=kernel_image, conditions=cs_f)
+        graph = self.build_graph(X, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, t_radius, density_estimator, weight_function, conditions=cs_f)
         self.graph = graph
         if not ((X == fac).all(1).any() for fac in factuals):
                 print("Warning in explain_FACE: factuals are not a subset of X")
 
-        classes = np.unique(Y)
+        classes = np.unique(Y, axis=0)
         # 2D - List of List[int]
         candidate_targets_all = []
         # 2D - List of List[int]; final distances for each candidate_target
@@ -603,8 +564,8 @@ class FACEMethod(ExplainabilityMethod):
         counterfactual_indexes = []
         counterfactuals = []
         counterfactual_targets = []
-        for count, fac in factuals:
-            print(f"Processing factual {count}")
+        for count, fac in enumerate(factuals):
+            print(f"Message in explain_FACE(): Processing factual {count}")
             if not ((X == fac).all(1).any() for fac in factuals):
                 ind = -(count+1)
             else:
@@ -613,12 +574,12 @@ class FACEMethod(ExplainabilityMethod):
                 target_class = target_classes[count]
                 predictions_target_class = predictions[:, target_class]
             else:
-                target_class = factuals_target[count]
+                target_class = facts_target[count]
                 predictions_target_class = predictions[:, np.delete(classes, target_class)]
             start_node_edges = []
             if not ((X == fac).all(1).any() for fac in factuals):
                 print("Warning in explain_FACE: factuals are not a subset of X")
-                start_node_edges = self.get_kernel_image(fac, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, density_estimator, weight_function, X.shape[0])
+                start_node_edges = self.graph(fac, kern, t_pred, t_den, t_dist, epsilon, k_n, K_, density_estimator, weight_function, X.shape[0], conditions=cs_f)
             self.start_node_edges = start_node_edges
             t0 = np.where(predictions_target_class >= t_pred)[0]
             if len(target_classes)>0:
@@ -640,11 +601,22 @@ class FACEMethod(ExplainabilityMethod):
             candidate_targets_all.append(candidate_targets)
             dists_all.append(dists_)
             paths_all.append(paths_)
-            dists_all_best.append(dists_[0])
-            paths_all_best.append(paths_[0])
-            counterfactual_indexes.append(paths_[0][1])
-            counterfactuals.append(X[paths_[0][1]])
-            counterfactual_targets.append(Y[paths_[0][1]][0])
+            if len(dists_)>1:
+                dists_all_best.append(dists_[0])
+            else:
+                dists_all_best.append([])
+            if len(paths_)>1:
+                paths_all_best.append(paths_[0])
+            else:
+                dists_all_best.append([])
+            if len(paths_)>1:
+                counterfactual_indexes.append(paths_[0][1])
+                counterfactuals.append(X[paths_[0][1]])
+                counterfactual_targets.append(Y[paths_[0][1]][0])
+            else:
+                counterfactual_indexes.append([])
+                counterfactuals.append([])
+                counterfactual_targets.append([])
 
         self.graph = graph
         self.distances = dists_all
