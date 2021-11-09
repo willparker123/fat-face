@@ -109,3 +109,121 @@ class Transformer(object):
             else:
                 self._fit(X)
         return 
+    
+    def encode(self, X: np.ndarray, column_groups: List[List[int]]=None):
+        if column_groups is not None and not_in_range(X.shape[1], column_groups):
+            raise ValueError("Invalid arguments in scale: Index in parameter columns is out of range")
+        X_copy = X
+        X_copys = np.zeros((1, X.shape[1]))
+        X_rems = []
+        if column_groups is not None:
+            cols = column_groups
+            cols.sort()
+            for index, col in enumerate(cols):
+                if sorted(col) == list(range(min(col), max(col)+1)) and col[0] >= 0:
+                    if index==len(cols)-1 or max(cols[index]) < min(cols[index+1]):
+                        X_rems.append(keep_cols(X, col))
+                    else:
+                        raise ValueError(f"Error in scale(): column {col} in column_groups has max value >= min value in next column {cols[index+1]}")
+                else:
+                    raise ValueError(f"Error in scale(): column {col} in column_groups must be consecutive, all i > 0")
+        else:
+            cols = [range(X.shape[1])]
+        X_transs = []
+        for X_rem in X_rems:
+            if X_rem.ndim < 2:
+                X_rem = X_rem.reshape(-1, 1)
+            self.fit(X_rem)
+            X_trans = self.transform(X_rem)
+            try:
+                X_trans = self.transform(X_rem)
+            except:
+                raise ValueError(f"Error in scale(): cannot transform X_rem")
+            if type(X_trans) == np.ndarray:
+                X_transs.append(X_trans)
+            else:
+                try:
+                    X_transs.append(X_trans.toarray())
+                except:
+                    raise ValueError(f"Error in scale(): cannot convert X_trans of type {type(X_trans)} to np.ndarray")
+        j = 0
+        i = 0
+        while i < X.shape[1]:
+            if any(min(cols[n])==i for n in range(len(cols))):
+                X_rem_temp = X_transs[j]
+                if X_rem_temp.ndim < 2:
+                    # may be a problem
+                    X_rem_temp = X_rem_temp.reshape(-1, 1)
+                if i == 0:
+                    X_copys = X_rem_temp
+                else:
+                    X_copys = np.column_stack((X_copys,X_rem_temp))
+                j+=1
+                i += X_rem_temp.shape[1]
+            else:
+                if i == 0:
+                    X_copys = X_copy[:, i]
+                else:
+                    X_copys = np.column_stack((X_copys,X_copy[:, i]))
+                i += 1
+            if not i == X_copys.shape[1]:
+                print(f"Message in scale(): scaled column [{i}] now at index [{X_copys.shape[1]}]")
+        return X_copys
+    
+    def decode(self, X: np.ndarray=None, column_groups: List[List[int]]=None):
+        if column_groups is not None and not_in_range(X.shape[1], column_groups):
+            raise ValueError("Invalid arguments in unscale: Index in parameter columns is out of range")
+        X_copy = X
+        X_copys = np.zeros((0, X.shape[1]))
+        X_rems = []
+        if column_groups is not None:
+            cols = column_groups
+            cols.sort()
+            for index, col in enumerate(cols):
+                if sorted(col) == list(range(min(col), max(col)+1)) and col[0] >= 0:
+                    if index==len(cols)-1 or max(cols[index]) < min(cols[index+1]):
+                        X_rems.append(keep_cols(X, col))
+                    else:
+                        raise ValueError(f"Error in unscale(): column {col} in column_groups has max value >= min value in next column {cols[index+1]}")
+                else:
+                    raise ValueError(f"Error in unscale(): column {col} in column_groups must be consecutive, all i > 0")
+        else:
+            cols = [range(X.shape[1])]
+        X_transs = []
+        for X_rem in X_rems:
+            if X_rem.ndim < 2:
+                X_rem = X_rem.reshape(-1, 1)
+            try:
+                X_trans = self.inverse_transform(X_rem)
+            except:
+                raise ValueError(f"Error in unscale(): cannot inverse_transform X_rem")
+            if type(X_trans) == np.ndarray:
+                X_transs.append(X_trans)
+            else:
+                try:
+                    X_transs.append(X_trans.toarray())
+                except:
+                    raise ValueError(f"Error in unscale(): cannot convert X_trans of type {type(X_trans)} to np.ndarray")
+        j = 0
+        i = 0
+        while i < X.shape[1]:
+            if any(min(cols[n])==i for n in range(len(cols))):
+                X_rem_temp = X_transs[j]
+                if X_rem_temp.ndim < 2:
+                    # may be a problem
+                    X_rem_temp = X_rem_temp.reshape(-1, 1)
+                if i == 0:
+                    X_copys = X_rem_temp
+                else:
+                    X_copys = np.column_stack((X_copys,X_rem_temp))
+                j+=1
+                i += X_rem_temp.shape[1]
+            else:
+                if i == 0:
+                    X_copys = X_copy[:, i]
+                else:
+                    X_copys = np.column_stack((X_copys,X_copy[:, i]))
+                i += 1
+            if not i == X_copys.shape[1]:
+                print(f"Message in unscale(): scaled column [{i}] now at index [{X_copys.shape[1]}]")
+        return X_copys

@@ -152,7 +152,7 @@ class FACEMethod(ExplainabilityMethod):
         self._t_radius = 1.10
         self._shortest_path = dijkstra
         self._conditions = lambda **kwargs: True
-        self._weight_function = lambda x: -np.log(x)
+        self._weight_function = lambda x: -np.log(np.where(x==0, 0.0000001, x))
         self._density_estimator = DensityEstimator()
         if 'shortest_path' in kwargs:
             self._shortest_path = check_type(kwargs.get("shortest_path"), "__init__", Callable[[np.ndarray, int, int, np.ndarray], Tuple[float, List[int]]])
@@ -368,6 +368,7 @@ class FACEMethod(ExplainabilityMethod):
             raise ValueError("Invalid argument in kernel.setter: kernel_type is not 'kde', 'knn', 'e' or 'gs'") 
 
     def kernel_KDE(self, X: np.ndarray, t_density, t_distance, density_estimator: DensityEstimator, weight_function: Callable[[Union[float, int]], float], samples=None):
+        print(f"Processing KERNELKDE")
         density_estimator.fit(X)
         n_samples = X.shape[0]
         length = n_samples
@@ -375,6 +376,7 @@ class FACEMethod(ExplainabilityMethod):
             length = samples
         g = np.zeros([n_samples, length], dtype=float)
         for i in range(n_samples):
+            print(f"--Row {i}")
             for j in range(i):
                 X_1=X[i, :]
                 X_2=X[j, :]
@@ -590,7 +592,6 @@ class FACEMethod(ExplainabilityMethod):
                 print("Warning in explain_FACE: factuals are not a subset of X")
 
         classes = np.unique(Y)
-        count = 0
         # 2D - List of List[int]
         candidate_targets_all = []
         # 2D - List of List[int]; final distances for each candidate_target
@@ -602,7 +603,8 @@ class FACEMethod(ExplainabilityMethod):
         counterfactual_indexes = []
         counterfactuals = []
         counterfactual_targets = []
-        for fac in factuals:
+        for count, fac in factuals:
+            print(f"Processing factual {count}")
             if not ((X == fac).all(1).any() for fac in factuals):
                 ind = -(count+1)
             else:
@@ -643,7 +645,6 @@ class FACEMethod(ExplainabilityMethod):
             counterfactual_indexes.append(paths_[0][1])
             counterfactuals.append(X[paths_[0][1]])
             counterfactual_targets.append(Y[paths_[0][1]][0])
-            count += 1
 
         self.graph = graph
         self.distances = dists_all

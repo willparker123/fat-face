@@ -42,13 +42,13 @@ class Data():
         if n_features == 1:
             dataset = np.reshape(dataset,(self.n_data,1))
         self._categoricals: List[List[int]] = []
-        self._numericals: List[List[int]] = list(list(range(n_features)))
+        self._numericals: List[List[int]] = [list(range(n_features))]
         if dtype:
             if dtype=="data" or dtype=="target":
                 if dtype=="data":
-                    self._numericals = list(list(range(n_features)))
+                    self._numericals = [list(range(n_features))]
                 else:
-                    self._categoricals = list(list(range(n_features)))
+                    self._categoricals = [list(range(n_features))]
             else:
                 raise ValueError("Invalid arguments in __init__: type must be 'data' or 'target'")
         if categoricals:
@@ -112,4 +112,4 @@ class Data():
         self._numericals = check_type(numericals, "numericals.setter", List[List[int]])
 
     def __str__(self):
-        return f"Data: {self.dataset}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, IsEncoded: {self.encoded}"
+        return f"Data: {self.dataset}, Categoricals: {self.categoricals}, Numericals: {self.numericals}, is_encoded: {self.encoded}"
